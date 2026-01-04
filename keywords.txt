@@ -1,0 +1,50 @@
+#######################################
+# Syntax Map For DFRobot_HumanPose
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+DFRobot_HumanPose	KEYWORD1
+DFRobot_HumanPose_I2C KEYWORD1
+DFRobot_HumanPose_UART KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+begin	KEYWORD2
+invoke	KEYWORD2
+setTScore	KEYWORD2
+setTIOU	KEYWORD2
+setModel	KEYWORD2
+getTScore	KEYWORD2
+getTIOU	KEYWORD2
+getModel	KEYWORD2
+boxes	KEYWORD2
+classes	KEYWORD2
+points	KEYWORD2
+kps	KEYWORD2
+
+#######################################
+# Instances (KEYWORD2)
+#######################################
+
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+
+eOK LITERAL1
+eAgain LITERAL1
+eLog LITERAL1
+eTimedOut LITERAL1
+eIO LITERAL1
+eINVAL LITERAL1
+eNOMEM LITERAL1
+eBUSY LITERAL1
+eNOTSUP LITERAL1
+ePERM LITERAL1
+eUnknown LITERAL1
+
