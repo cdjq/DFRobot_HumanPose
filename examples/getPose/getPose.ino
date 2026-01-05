@@ -1,8 +1,8 @@
 #include <DFRobot_HumanPose.h>
 
 /* >> 1.Please choose your communication method below: */
-// #define HUMANPOSE_COMM_UART
-#define HUMANPOSE_COMM_I2C
+#define HUMANPOSE_COMM_UART
+// #define HUMANPOSE_COMM_I2C
 
 /**
  * I2C address configuration
@@ -18,7 +18,7 @@ const uint8_t I2C_ADDR = 0x62;
  *     RX     |              TX                |     Serial1 TX1      |     5     |   5/D6  |  26/D3|     X      |  tx1  |
  *     TX     |              RX                |     Serial1 RX1      |     4     |   4/D7  |  25/D2|     X      |  rx1  |
  * ----------------------------------------------------------------------------------------------------------------------*/
-DFRobot_HumanPose_UART humanPose(&Serial1);
+DFRobot_HumanPose_UART humanPose(&Serial1, 921600, 25, 26);
 #elif defined(HUMANPOSE_COMM_I2C)
 DFRobot_HumanPose_I2C humanPose(&Wire, I2C_ADDR);
 #else
@@ -73,7 +73,5 @@ void loop() {
                 Serial.println(humanPose.kps()[i].points[j].target);
             }
         }
-        
-        delay(1000);
     }
 }

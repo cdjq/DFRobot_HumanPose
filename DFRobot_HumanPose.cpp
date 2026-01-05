@@ -542,10 +542,12 @@ int DFRobot_HumanPose_I2C::write(const char *data, int len)
 
 // ============ Derived Class: DFRobot_HumanPose_UART ============
 
-DFRobot_HumanPose_UART::DFRobot_HumanPose_UART(HardwareSerial *serial, uint32_t baud)
+DFRobot_HumanPose_UART::DFRobot_HumanPose_UART(HardwareSerial *serial, uint32_t baud = SSCMA_UART_BAUD, uint8_t rxpin, uint8_t txpin)
 {
     _serial = serial;
-    _baud = baud;
+    __baud = baud;
+    __rxpin = rxpin;
+    __txpin = txpin;
 }
 
 DFRobot_HumanPose_UART::~DFRobot_HumanPose_UART()
@@ -555,7 +557,7 @@ DFRobot_HumanPose_UART::~DFRobot_HumanPose_UART()
 bool DFRobot_HumanPose_UART::begin(void)
 {
     _wait_delay = 2;
-    _serial->begin(_baud);
+    _serial->begin(__baud, SERIAL_8N1, __rxpin, __txpin);
     _serial->setTimeout(1000);
     _serial->flush();
     

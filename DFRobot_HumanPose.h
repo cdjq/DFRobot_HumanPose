@@ -203,9 +203,11 @@ protected:
 class DFRobot_HumanPose_UART : public DFRobot_HumanPose {
 protected:
     HardwareSerial *_serial;
-    uint32_t _baud;
+    uint32_t __baud;
+    uint8_t __rxpin;
+    uint8_t __txpin;
 public:
-    DFRobot_HumanPose_UART(HardwareSerial *serial, uint32_t baud = SSCMA_UART_BAUD);
+    DFRobot_HumanPose_UART(HardwareSerial *serial, uint32_t baud, uint8_t rxpin = 0, uint8_t txpin = 0);
     ~DFRobot_HumanPose_UART();
     bool begin(void);
 
