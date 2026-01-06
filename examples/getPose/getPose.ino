@@ -32,7 +32,7 @@ void setup() {
         delay(1000);
     }
     Serial.println("Sensor init success!");
-    humanPose.setModel(DFRobot_HumanPose::ePose);
+    humanPose.setModel(DFRobot_HumanPose::eHand);
 }
 
 void loop() {

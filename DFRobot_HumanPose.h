@@ -23,10 +23,16 @@
 #include <ArduinoJson.h>
 
 
+#ifdef ENABLE_DBG
+#define LDBG(...)  {Serial.print("["); Serial.print(__FUNCTION__); Serial.print("(): "); Serial.print(__LINE__); Serial.print(" ] "); Serial.println(__VA_ARGS__);}
+#else
+#define LDBG(...)
+#endif
+
 class DFRobot_HumanPose {
 protected:
 
-#define I2C_ADDRESS (0x62)
+#define I2C_ADDRESS (0x3A)
 
 #define HEADER_LEN (uint8_t)4
 #define MAX_PL_LEN (uint8_t)250
@@ -41,24 +47,24 @@ protected:
 #define FEATURE_TRANSPORT_CMD_AVAILABLE 0x03
 #define FEATURE_TRANSPORT_CMD_RESET 0x06
 
-#ifndef SSCMA_MAX_RX_SIZE
+#ifndef RX_MAX_SIZE
 #ifdef ARDUINO_ARCH_ESP32
-#define SSCMA_MAX_RX_SIZE 32 * 1024
+#define RX_MAX_SIZE 32 * 1024
 #else
-#define SSCMA_MAX_RX_SIZE 4 * 1024
+#define RX_MAX_SIZE 4 * 1024
 #endif
 #endif
 
-#ifndef SSCMA_MAX_TX_SIZE
-#define SSCMA_MAX_TX_SIZE 4 * 1024
+#ifndef TX_MAX_SIZE
+#define TX_MAX_SIZE 4 * 1024
 #endif
 
-#ifndef SSCMA_IIC_CLOCK
-#define SSCMA_IIC_CLOCK 400000
+#ifndef I2C_CLOCK
+#define I2C_CLOCK 400000
 #endif
 
-#ifndef SSCMA_UART_BAUD
-#define SSCMA_UART_BAUD 921600
+#ifndef UART_BAUD
+#define UART_BAUD 921600
 #endif
 
 #define RES_PRE "\r{"
@@ -162,7 +168,7 @@ public:
     DFRobot_HumanPose();
     ~DFRobot_HumanPose();
     bool begin();
-    eCmdCode_t invoke();
+    eCmdCode_t getResult();
     virtual int available() = 0;
     virtual int read(char *data, int len) = 0;
     virtual int write(const char *data, int len) = 0;
@@ -184,10 +190,7 @@ public:
 class DFRobot_HumanPose_I2C : public DFRobot_HumanPose {
 protected:
     TwoWire *_wire;
-    uint8_t _address;
-    
-    // I2C transport functions
-    void i2c_cmd(uint8_t feature, uint8_t cmd, uint16_t len = 0, uint8_t *data = NULL);
+    uint8_t __address;
     
 public:
     DFRobot_HumanPose_I2C(TwoWire *wire, uint8_t address);
@@ -202,12 +205,22 @@ protected:
 
 class DFRobot_HumanPose_UART : public DFRobot_HumanPose {
 protected:
+#if defined(ARDUINO_AVR_UNO) || defined(ESP8266)
+    SoftwareSerial *_serial;
+#else
     HardwareSerial *_serial;
-    uint32_t __baud;
+    
     uint8_t __rxpin;
     uint8_t __txpin;
+#endif
+    uint32_t __baud;
+
 public:
-    DFRobot_HumanPose_UART(HardwareSerial *serial, uint32_t baud, uint8_t rxpin = 0, uint8_t txpin = 0);
+#if defined(ARDUINO_AVR_UNO) || defined(ESP8266)
+    DFRobot_HumanPose_UART(SoftwareSerial *sSerial, uint32_t baud);
+#else
+    DFRobot_HumanPose_UART(HardwareSerial *hSerial, uint32_t baud, uint8_t rxpin = 0, uint8_t txpin = 0);
+#endif
     ~DFRobot_HumanPose_UART();
     bool begin(void);
 

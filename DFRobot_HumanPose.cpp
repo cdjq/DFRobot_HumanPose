@@ -82,19 +82,19 @@ DFRobot_HumanPose::~DFRobot_HumanPose()
 bool DFRobot_HumanPose::begin()
 {
     // Allocate buffers
-    rx_buf = (char *)malloc(SSCMA_MAX_RX_SIZE);
-    tx_buf = (char *)malloc(SSCMA_MAX_TX_SIZE);
-    rx_len = SSCMA_MAX_RX_SIZE;
-    tx_len = SSCMA_MAX_TX_SIZE;
-    
+    rx_buf = (char *)malloc(RX_MAX_SIZE);
+    tx_buf = (char *)malloc(TX_MAX_SIZE);
+    rx_len = RX_MAX_SIZE;
+    tx_len = TX_MAX_SIZE;
+
     if (!rx_buf || !tx_buf)
     {
         return false;
     }
-    
+
     rx_end = 0;
     response.clear();
-    
+
     return true;
 }
 
@@ -102,7 +102,7 @@ int DFRobot_HumanPose::wait(int type, const char *cmd, uint32_t timeout)
 {
     int ret = eOK;
     unsigned long startTime = millis();
-    
+
     while (millis() - startTime <= timeout)
     {
         int len = available();
@@ -111,7 +111,7 @@ int DFRobot_HumanPose::wait(int type, const char *cmd, uint32_t timeout)
             delay(1);
             continue;
         }
-        
+
         if (len + rx_end > rx_len)
         {
             len = rx_len - rx_end;
@@ -132,7 +132,7 @@ int DFRobot_HumanPose::wait(int type, const char *cmd, uint32_t timeout)
                 // Extract JSON payload
                 len = suffix - prefix + RES_SUF_LEN;
                 payload = (char *)malloc(len);
-                
+
                 if (!payload)
                 {
                     continue;
@@ -147,7 +147,7 @@ int DFRobot_HumanPose::wait(int type, const char *cmd, uint32_t timeout)
                 DeserializationError error = deserializeJson(response, payload);
                 free(payload);
                 payload = NULL;
-                
+
                 if (error)
                 {
                     continue;
@@ -161,7 +161,7 @@ int DFRobot_HumanPose::wait(int type, const char *cmd, uint32_t timeout)
                 ret = response["code"];
 
                 // Match command name
-                const char* resp_name = response["name"];
+                const char *resp_name = response["name"];
                 if (resp_name && response["type"] == type)
                 {
                     size_t cmd_len = strlen(cmd);
@@ -188,108 +188,68 @@ int DFRobot_HumanPose::wait(int type, const char *cmd, uint32_t timeout)
 
 void DFRobot_HumanPose::parser_event()
 {
-    const char* event_name = response["name"];
+    const char *event_name = response["name"];
     if (event_name && strstr(event_name, EVENT_INVOKE))
     {
-        if (response["data"].containsKey("boxes"))
-        {
-            _boxes.clear();
-            JsonArray boxes = response["data"]["boxes"];
-            for (size_t i = 0; i < boxes.size(); i++)
-            {
-                JsonArray box = boxes[i];
-                sBox_t b;
-                b.x = box[0];
-                b.y = box[1];
-                b.w = box[2];
-                b.h = box[3];
-                b.score = box[4];
-                b.target = box[5];
-                _boxes.push_back(b);
-            }
-        }
+        JsonObject data = response["data"].as<JsonObject>();
 
-        if (response["data"].containsKey("classes"))
-        {
-            _classes.clear();
-            JsonArray classes = response["data"]["classes"];
-            for (size_t i = 0; i < classes.size(); i++)
-            {
-                JsonArray cls = classes[i];
-                sClass_t c;
-                c.target = cls[1];
-                c.score = cls[0];
-                _classes.push_back(c);
-            }
-        }
-
-        if (response["data"].containsKey("points"))
-        {
-            _points.clear();
-            JsonArray points = response["data"]["points"];
-            for (size_t i = 0; i < points.size(); i++)
-            {
-                JsonArray point = points[i];
-                sPoint_t p;
-                p.x = point[0];
-                p.y = point[1];
-                p.z = 0;
-                p.score = point[2];
-                p.target = point[3];
-                _points.push_back(p);
-            }
-        }
-
-        if (response["data"].containsKey("pose_keypoints"))
+        // ---- pose_keypoints ----
+        if (data["pose_keypoints"].is<JsonArray>())
         {
             _kps.clear();
-            JsonArray keypoints = response["data"]["pose_keypoints"];
+            JsonArray keypoints = data["pose_keypoints"].as<JsonArray>();
+
             for (size_t i = 0; i < keypoints.size(); i++)
             {
                 sKps_t k;
-                JsonArray box = keypoints[i][0];
-                JsonArray points = keypoints[i][1];
-                k.box.x = box[0];
-                k.box.y = box[1];
-                k.box.w = box[2];
-                k.box.h = box[3];
-                k.box.score = box[4];
-                k.box.target = box[5];
+                JsonArray box = keypoints[i][0].as<JsonArray>();
+                JsonArray points = keypoints[i][1].as<JsonArray>();
+
+                k.box.x = box[0] | 0;
+                k.box.y = box[1] | 0;
+                k.box.w = box[2] | 0;
+                k.box.h = box[3] | 0;
+                k.box.score = box[4] | 0;
+                k.box.target = box[5] | 0;
 
                 for (size_t j = 0; j < points.size(); j++)
                 {
                     sPoint_t p;
-                    p.x = points[j][0];
-                    p.y = points[j][1];
+                    p.x = points[j][0] | 0;
+                    p.y = points[j][1] | 0;
                     p.z = 0;
-                    p.score = points[j][2];
-                    p.target = points[j][3];
+                    p.score = points[j][2] | 0;
+                    p.target = points[j][3] | 0;
                     k.points.push_back(p);
                 }
                 _kps.push_back(k);
             }
         }
-        if (response["data"].containsKey("hand_keypoints"))
+
+        // ---- hand_keypoints ----
+        else if (data["hand_keypoints"].is<JsonArray>())
         {
             _kps.clear();
-            JsonArray keypoints = response["data"]["hand_keypoints"];
+            JsonArray keypoints = data["hand_keypoints"].as<JsonArray>();
+
             for (size_t i = 0; i < keypoints.size(); i++)
             {
                 sKps_t k;
-                JsonArray box = keypoints[i][0];
-                JsonArray points = keypoints[i][1];
-                k.box.x = box[0];
-                k.box.y = box[1];
-                k.box.w = box[2];
-                k.box.h = box[3];
-                k.box.score = box[4];
-                k.box.target = box[5];
+                JsonArray box = keypoints[i][0].as<JsonArray>();
+                JsonArray points = keypoints[i][1].as<JsonArray>();
+
+                k.box.x = box[0] | 0;
+                k.box.y = box[1] | 0;
+                k.box.w = box[2] | 0;
+                k.box.h = box[3] | 0;
+                k.box.score = box[4] | 0;
+                k.box.target = box[5] | 0;
 
                 for (size_t j = 0; j < points.size(); j++)
                 {
                     sPoint_t p;
-                    p.x = points[j][0];
-                    p.y = points[j][1];
+                    p.x = points[j][0] | 0;
+                    p.y = points[j][1] | 0;
                     p.z = 0;
                     p.score = 0;
                     p.target = 0;
@@ -301,7 +261,7 @@ void DFRobot_HumanPose::parser_event()
     }
 }
 
-DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::invoke()
+DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getResult()
 {
     char cmd[64] = {0};
     snprintf(cmd, sizeof(cmd), CMD_PRE "%s=1,0,1" CMD_SUF, AT_INVOKE);
@@ -401,7 +361,7 @@ DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getModel()
 DFRobot_HumanPose_I2C::DFRobot_HumanPose_I2C(TwoWire *wire, uint8_t address)
 {
     _wire = wire;
-    _address = address;
+    __address = address;
 }
 
 DFRobot_HumanPose_I2C::~DFRobot_HumanPose_I2C()
@@ -411,35 +371,17 @@ DFRobot_HumanPose_I2C::~DFRobot_HumanPose_I2C()
 bool DFRobot_HumanPose_I2C::begin(void)
 {
     _wire->begin();
-    _wire->setClock(SSCMA_IIC_CLOCK);
+    _wire->setClock(I2C_CLOCK);
     _wait_delay = 2;
-    
-    return DFRobot_HumanPose::begin();
-}
 
-void DFRobot_HumanPose_I2C::i2c_cmd(uint8_t feature, uint8_t cmd, uint16_t len, uint8_t *data)
-{
-    delay(_wait_delay);
-    _wire->beginTransmission(_address);
-    _wire->write(feature);
-    _wire->write(cmd);
-    _wire->write(len >> 8);
-    _wire->write(len & 0xFF);
-    if (data != NULL)
-    {
-        _wire->write(data, len);
-    }
-    // TODO checksum
-    _wire->write(0);
-    _wire->write(0);
-    _wire->endTransmission();
+    return DFRobot_HumanPose::begin();
 }
 
 int DFRobot_HumanPose_I2C::available()
 {
     uint8_t buf[2] = {0};
     delay(_wait_delay);
-    _wire->beginTransmission(_address);
+    _wire->beginTransmission(__address);
     _wire->write(FEATURE_TRANSPORT);
     _wire->write(FEATURE_TRANSPORT_CMD_AVAILABLE);
     _wire->write(0);
@@ -450,7 +392,7 @@ int DFRobot_HumanPose_I2C::available()
     if (_wire->endTransmission() == 0)
     {
         delay(_wait_delay);
-        _wire->requestFrom(_address, (uint8_t)2);
+        _wire->requestFrom(__address, (uint8_t)2);
         _wire->readBytes(buf, (uint8_t)2);
     }
 
@@ -461,11 +403,11 @@ int DFRobot_HumanPose_I2C::read(char *data, int len)
 {
     uint16_t packets = len / MAX_PL_LEN;
     uint8_t remain = len % MAX_PL_LEN;
-    
+
     for (uint16_t i = 0; i < packets; i++)
     {
         delay(_wait_delay);
-        _wire->beginTransmission(_address);
+        _wire->beginTransmission(__address);
         _wire->write(FEATURE_TRANSPORT);
         _wire->write(FEATURE_TRANSPORT_CMD_READ);
         _wire->write(MAX_PL_LEN >> 8);
@@ -476,15 +418,15 @@ int DFRobot_HumanPose_I2C::read(char *data, int len)
         if (_wire->endTransmission() == 0)
         {
             delay(_wait_delay);
-            _wire->requestFrom(_address, MAX_PL_LEN);
+            _wire->requestFrom(__address, MAX_PL_LEN);
             _wire->readBytes(data + i * MAX_PL_LEN, MAX_PL_LEN);
         }
     }
-    
+
     if (remain)
     {
         delay(_wait_delay);
-        _wire->beginTransmission(_address);
+        _wire->beginTransmission(__address);
         _wire->write(FEATURE_TRANSPORT);
         _wire->write(FEATURE_TRANSPORT_CMD_READ);
         _wire->write(remain >> 8);
@@ -495,11 +437,11 @@ int DFRobot_HumanPose_I2C::read(char *data, int len)
         if (_wire->endTransmission() == 0)
         {
             delay(_wait_delay);
-            _wire->requestFrom(_address, remain);
+            _wire->requestFrom(__address, remain);
             _wire->readBytes(data + packets * MAX_PL_LEN, remain);
         }
     }
-    
+
     return len;
 }
 
@@ -507,11 +449,11 @@ int DFRobot_HumanPose_I2C::write(const char *data, int len)
 {
     uint16_t packets = len / MAX_PL_LEN;
     uint16_t remain = len % MAX_PL_LEN;
-    
+
     for (uint16_t i = 0; i < packets; i++)
     {
         delay(_wait_delay);
-        _wire->beginTransmission(_address);
+        _wire->beginTransmission(__address);
         _wire->write(FEATURE_TRANSPORT);
         _wire->write(FEATURE_TRANSPORT_CMD_WRITE);
         _wire->write(MAX_PL_LEN >> 8);
@@ -522,11 +464,11 @@ int DFRobot_HumanPose_I2C::write(const char *data, int len)
         _wire->write(0);
         _wire->endTransmission();
     }
-    
+
     if (remain)
     {
         delay(_wait_delay);
-        _wire->beginTransmission(_address);
+        _wire->beginTransmission(__address);
         _wire->write(FEATURE_TRANSPORT);
         _wire->write(FEATURE_TRANSPORT_CMD_WRITE);
         _wire->write(remain >> 8);
@@ -536,19 +478,27 @@ int DFRobot_HumanPose_I2C::write(const char *data, int len)
         _wire->write(0);
         _wire->endTransmission();
     }
-    
+
     return len;
 }
 
 // ============ Derived Class: DFRobot_HumanPose_UART ============
 
-DFRobot_HumanPose_UART::DFRobot_HumanPose_UART(HardwareSerial *serial, uint32_t baud = SSCMA_UART_BAUD, uint8_t rxpin, uint8_t txpin)
+#if defined(ARDUINO_AVR_UNO) || defined(ESP8266)
+DFRobot_HumanPose_UART::DFRobot_HumanPose_UART(SoftwareSerial *sSerial, uint32_t baud)
 {
-    _serial = serial;
+    _serial = sSerial;
+    __baud = baud;
+}
+#else
+DFRobot_HumanPose_UART::DFRobot_HumanPose_UART(HardwareSerial *hSerial, uint32_t baud = UART_BAUD, uint8_t rxpin, uint8_t txpin)
+{
+    _serial = hSerial;
     __baud = baud;
     __rxpin = rxpin;
     __txpin = txpin;
 }
+#endif
 
 DFRobot_HumanPose_UART::~DFRobot_HumanPose_UART()
 {
@@ -557,10 +507,16 @@ DFRobot_HumanPose_UART::~DFRobot_HumanPose_UART()
 bool DFRobot_HumanPose_UART::begin(void)
 {
     _wait_delay = 2;
+#ifdef ESP32
     _serial->begin(__baud, SERIAL_8N1, __rxpin, __txpin);
+#elif defined(ARDUINO_AVR_UNO) || defined(ESP8266)
+    _serial->begin(__baud);
+#else
+    _serial->begin(__baud);
+#endif
     _serial->setTimeout(1000);
     _serial->flush();
-    
+
     return DFRobot_HumanPose::begin();
 }
 
