@@ -9,6 +9,8 @@
  * @version     V1.0.0
  * @date        2025-01-01
  * @url         https://github.com/DFRobot/DFRobot_HumanPose
+ * 
+ * @note For more information about the sensor, please visit: https://github.com/DFRobot/DFRobot_RTU
  */
 #ifndef DFRobot_HumanPose_H
 #define DFRobot_HumanPose_H
@@ -22,7 +24,9 @@
 #include <Wire.h>
 #include <ArduinoJson.h>
 
+#define ARDUINOJSON_ENABLE_STD_STRING 1
 
+// #define ENABLE_DBG
 #ifdef ENABLE_DBG
 #define LDBG(...)  {Serial.print("["); Serial.print(__FUNCTION__); Serial.print("(): "); Serial.print(__LINE__); Serial.print(" ] "); Serial.println(__VA_ARGS__);}
 #else
@@ -89,58 +93,86 @@ static constexpr const char AT_TIOU[] = "TIOU";
 static constexpr const char AT_MODELS[] = "MODELS?";
 static constexpr const char AT_MODEL[] = "MODEL";
 static constexpr const char EVENT_INVOKE[] = "INVOKE";
-
+static constexpr const char AT_TSIMILARITY[] = "TSIMILARITY";
+static constexpr const char AT_BAUD[] = "BAUD";
+static constexpr const char AT_POSELIST[] = "POSELIST?";
+static constexpr const char AT_HANDLIST[] = "HANDLIST?";
 public:
 
+/**
+ * @enum eCmdCode_t
+ * @brief Command execution status code
+ */
 typedef enum {
-    eOK = 0,
-    eAgain = 1,
-    eLog = 2,
-    eTimedOut = 3,
-    eIO = 4,
-    eINVAL = 5,
-    eNOMEM = 6,
-    eBUSY = 7,
-    eNOTSUP = 8,
-    ePERM = 9,
-    eUnknown = 10,
+    eOK = 0,        ///< Operation successful
+    eAgain = 1,     ///< Operation needs to be retried
+    eLog = 2,       ///< Log message
+    eTimedOut = 3,  ///< Operation timed out
+    eIO = 4,        ///< Input/output error
+    eINVAL = 5,     ///< Invalid argument
+    eNOMEM = 6,     ///< Out of memory
+    eBUSY = 7,      ///< Device busy
+    eNOTSUP = 8,    ///< Operation not supported
+    ePERM = 9,      ///< Permission denied
+    eUnknown = 10,  ///< Unknown error
 } eCmdCode_t;
 
+/**
+ * @enum eModel_t
+ * @brief Detection model type
+ */
 typedef enum {
-    eHand = 1,
-    ePose = 3,
+    eHand = 1,  ///< Hand detection model
+    ePose = 3,  ///< Human pose detection model
 } eModel_t;
 
+/**
+ * @struct sBox_t
+ * @brief Bounding box structure for detected objects
+ */
 typedef struct
 {
-    uint16_t x;
-    uint16_t y;
-    uint16_t w;
-    uint16_t h;
-    uint8_t score;
-    uint8_t target;
+    uint16_t x;      ///< X coordinate of the top-left corner
+    uint16_t y;      ///< Y coordinate of the top-left corner
+    uint16_t w;      ///< Width of the bounding box
+    uint16_t h;      ///< Height of the bounding box
+    uint8_t score;   ///< Detection confidence score (0-100)
+    uint8_t target;  ///< Target identifier (0 means unknown, non-zero means learned target)
 } sBox_t;
 
+/**
+ * @struct sClass_t
+ * @brief Classification result structure
+ */
 typedef struct
 {
-    uint8_t target;
-    uint8_t score;
+    uint8_t target;  ///< Target identifier
+    uint8_t score;   ///< Classification confidence score (0-100)
 } sClass_t;
 
+/**
+ * @struct sPoint_t
+ * @brief Keypoint structure (e.g., joint positions)
+ */
 typedef struct
 {
-    uint16_t x;
-    uint16_t y;
-    uint16_t z;
-    uint8_t score;
-    uint8_t target;
+    uint16_t x;      ///< X coordinate of the keypoint
+    uint16_t y;      ///< Y coordinate of the keypoint
+    uint16_t z;      ///< Z coordinate of the keypoint (currently unused, set to 0)
+    uint8_t score;   ///< Keypoint detection confidence score (0-100)
+    uint8_t target;  ///< Target identifier
 } sPoint_t;
 
+/**
+ * @struct sKeypoints_t
+ * @brief Keypoints structure containing bounding box and keypoint array
+ */
 typedef struct
 {
-    sBox_t box;
-    std::vector<sPoint_t> points;
-} sKps_t;
+    sBox_t box;                    ///< Bounding box of the detected object
+    std::vector<sPoint_t> points;  ///< Vector of keypoints (e.g., joint positions)
+} sKeypoints_t;
+
 
 protected:
     int _wait_delay;
@@ -148,7 +180,7 @@ protected:
     std::vector<sBox_t> _boxes;
     std::vector<sClass_t> _classes;
     std::vector<sPoint_t> _points;
-    std::vector<sKps_t> _kps;
+    std::vector<sKeypoints_t> _keypoints;
     #if ARDUINOJSON_VERSION_MAJOR == 7
         JsonDocument response; // for json response
     #else
@@ -159,74 +191,377 @@ protected:
     char *rx_buf;
     uint32_t rx_len;
     char *payload;
-    
+
+    uint8_t _ret_data;
+    std::vector<std::string> _learn_list;
     // Command processing helper functions
     int wait(int type, const char *cmd, uint32_t timeout = 1000);
     void parser_event();
     
 public:
+    /**
+     * @fn DFRobot_HumanPose
+     * @brief Constructor of DFRobot_HumanPose class
+     */
     DFRobot_HumanPose();
+    
+    /**
+     * @fn ~DFRobot_HumanPose
+     * @brief Destructor of DFRobot_HumanPose class
+     */
     ~DFRobot_HumanPose();
+    
+    /**
+     * @fn begin
+     * @brief Initialize the sensor
+     * @return True if initialization is successful, otherwise false
+     */
     bool begin();
+    
+    /**
+     * @fn getResult
+     * @brief Get detection results from the sensor
+     * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
+     * @note After calling this function, the detection results will be stored in the keypoints vector.
+     *       You can access the results using the keypoints() method.
+     */
     eCmdCode_t getResult();
+    
+    /**
+     * @fn available
+     * @brief Check if data is available for reading (pure virtual function)
+     * @return Number of bytes available for reading
+     */
     virtual int available() = 0;
+    
+    /**
+     * @fn read
+     * @brief Read data from the sensor (pure virtual function)
+     * @param data Buffer to store the read data
+     * @param len Maximum number of bytes to read
+     * @return Number of bytes actually read
+     */
     virtual int read(char *data, int len) = 0;
+    
+    /**
+     * @fn write
+     * @brief Write data to the sensor (pure virtual function)
+     * @param data Data to write
+     * @param len Number of bytes to write
+     * @return Number of bytes actually written
+     */
     virtual int write(const char *data, int len) = 0;
 
+    /**
+     * @fn setTScore
+     * @brief Set the detection threshold score
+     * 
+     * Sets the minimum confidence score required for a detection to be considered valid.
+     * Higher values result in fewer but more reliable detections. Lower values allow more
+     * detections but may include false positives.
+     *
+     * @param tscore Threshold score value (0-100). Default is typically 60.
+     * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
+     */
     eCmdCode_t setTScore(uint8_t tscore);
+    
+    /**
+     * @fn setTIOU
+     * @brief Set the Intersection over Union (IOU) threshold
+     * 
+     * Sets the IOU threshold used for non-maximum suppression during object detection.
+     * This parameter helps filter out overlapping detections.
+     *
+     * @param tious IOU threshold value (0-100). Default is typically 45.
+     * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
+     */
     eCmdCode_t setTIOU(uint8_t tious);
+    
+    /**
+     * @fn setModel
+     * @brief Set the detection model
+     * 
+     * Selects which detection model to use. The sensor supports hand detection and human pose detection.
+     *
+     * @param model Model type of type `eModel_t`, with possible values including:
+     *              - `eHand` - Hand detection model
+     *              - `ePose` - Human pose detection model
+     * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
+     */
     eCmdCode_t setModel(eModel_t model);
+    
+    /**
+     * @fn setSimilarity
+     * @brief Set the similarity threshold for learned targets
+     * 
+     * Sets the similarity threshold used when matching detected objects against learned targets.
+     * This parameter is used for gesture recognition and learned pose matching.
+     *
+     * @param Similarity Similarity threshold value (0-100). Default is typically 60.
+     * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
+     */
+    eCmdCode_t setSimilarity(uint8_t Similarity);
+    
+    /**
+     * @fn getTScore
+     * @brief Get the current detection threshold score
+     * 
+     * Retrieves the currently configured detection threshold score.
+     *
+     * @param score Pointer to store the threshold score value (0-100)
+     * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
+     */
+    eCmdCode_t getTScore(uint8_t* score);
+    
+    /**
+     * @fn getTIOU
+     * @brief Get the current IOU threshold
+     * 
+     * Retrieves the currently configured IOU threshold value.
+     *
+     * @param iou Pointer to store the IOU threshold value (0-100)
+     * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
+     */
+    eCmdCode_t getTIOU(uint8_t* iou);
+    
+    /**
+     * @fn getModel
+     * @brief Get the current detection model
+     * 
+     * Retrieves the currently active detection model type.
+     *
+     * @param model Pointer to a character buffer to store the model name ("HAND" or "POSE")
+     * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
+     * @note The buffer should be large enough to store the model name string.
+     */
+    eCmdCode_t getModel(char* model);
+    
+    /**
+     * @fn getSimilarity
+     * @brief Get the current similarity threshold
+     * 
+     * Retrieves the currently configured similarity threshold value.
+     *
+     * @param Similarity Pointer to store the similarity threshold value (0-100)
+     * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
+     */
+    eCmdCode_t getSimilarity(uint8_t* Similarity);
 
-    eCmdCode_t getTScore();
-    eCmdCode_t getTIOU();
-    eCmdCode_t getModel();
+    /**
+     * @fn getLearnList
+     * @brief Get the list of learned targets for the specified model
+     * 
+     * Retrieves a list of all learned target names for the specified detection model.
+     * This function is useful for gesture recognition and pose learning applications.
+     *
+     * @param model Model type of type `eModel_t`:
+     *              - `eHand` - Get list of learned hand gestures
+     *              - `ePose` - Get list of learned poses
+     * @return Vector of strings containing the names of learned targets. Returns empty vector on error.
+     */
+    std::vector<std::string> getLearnList(eModel_t model);
 
+    /**
+     * @fn boxes
+     * @brief Get reference to the bounding boxes vector
+     * @return Reference to vector containing detected bounding boxes
+     */
     std::vector<sBox_t> &boxes() { return _boxes; }
+    
+    /**
+     * @fn classes
+     * @brief Get reference to the classification results vector
+     * @return Reference to vector containing classification results
+     */
     std::vector<sClass_t> &classes() { return _classes; }
+    
+    /**
+     * @fn points
+     * @brief Get reference to the keypoints vector
+     * @return Reference to vector containing detected keypoints
+     */
     std::vector<sPoint_t> &points() { return _points; }
-    std::vector<sKps_t> &kps() { return _kps; }
+    
+    /**
+     * @fn keypoints
+     * @brief Get reference to the keypoints structure vector
+     * @return Reference to vector containing keypoints structures (each includes a bounding box and keypoint array)
+     * @note This is the primary method to access detection results after calling getResult()
+     */
+    std::vector<sKeypoints_t> &keypoints() { return _keypoints; }
 };
 
+/**
+ * @class DFRobot_HumanPose_I2C
+ * @brief I2C communication class for DFRobot_HumanPose sensor
+ */
 class DFRobot_HumanPose_I2C : public DFRobot_HumanPose {
 protected:
-    TwoWire *_wire;
-    uint8_t __address;
+    TwoWire *_wire;      ///< I2C communication interface
+    uint8_t __address;   ///< I2C device address
     
 public:
+    /**
+     * @fn DFRobot_HumanPose_I2C
+     * @brief Constructor of DFRobot_HumanPose_I2C class
+     * @param wire Pointer to TwoWire object (typically &Wire)
+     * @param address I2C device address (default is 0x3A)
+     */
     DFRobot_HumanPose_I2C(TwoWire *wire, uint8_t address);
+    
+    /**
+     * @fn ~DFRobot_HumanPose_I2C
+     * @brief Destructor of DFRobot_HumanPose_I2C class
+     */
     ~DFRobot_HumanPose_I2C();
+    
+    /**
+     * @fn begin
+     * @brief Initialize the I2C communication and sensor
+     * @return True if initialization is successful, otherwise false
+     */
     bool begin(void);
 
 protected:  
+    /**
+     * @fn available
+     * @brief Check if data is available for reading via I2C
+     * @return Number of bytes available for reading
+     */
     int available();
+    
+    /**
+     * @fn read
+     * @brief Read data from the sensor via I2C
+     * @param data Buffer to store the read data
+     * @param len Maximum number of bytes to read
+     * @return Number of bytes actually read
+     */
     int read(char *data, int len);
+    
+    /**
+     * @fn write
+     * @brief Write data to the sensor via I2C
+     * @param data Data to write
+     * @param len Number of bytes to write
+     * @return Number of bytes actually written
+     */
     int write(const char *data, int len);
 };
 
+/**
+ * @class DFRobot_HumanPose_UART
+ * @brief UART communication class for DFRobot_HumanPose sensor
+ */
 class DFRobot_HumanPose_UART : public DFRobot_HumanPose {
+public:
+    /**
+     * @enum eBaudConfig_t
+     * @brief Baud rate configuration options
+     */
+    typedef enum {
+        eBaud_9600,     ///< Baud rate 9600
+        eBaud_14400,    ///< Baud rate 14400
+        eBaud_19200,    ///< Baud rate 19200
+        eBaud_38400,    ///< Baud rate 38400
+        eBaud_57600,    ///< Baud rate 57600
+        eBaud_115200,   ///< Baud rate 115200
+        eBaud_230400,   ///< Baud rate 230400
+        eBaud_460800,   ///< Baud rate 460800
+        eBaud_921600,   ///< Baud rate 921600 (Default)
+        eBaud_MAX       ///< Maximum baud rate value
+    } eBaudConfig_t;
+    
 protected:
 #if defined(ARDUINO_AVR_UNO) || defined(ESP8266)
-    SoftwareSerial *_serial;
+    SoftwareSerial *_serial;  ///< SoftwareSerial object for UNO/ESP8266
 #else
-    HardwareSerial *_serial;
-    
-    uint8_t __rxpin;
-    uint8_t __txpin;
+    HardwareSerial *_serial;  ///< HardwareSerial object
+    uint8_t __rxpin;          ///< RX pin number (for ESP32)
+    uint8_t __txpin;          ///< TX pin number (for ESP32)
 #endif
-    uint32_t __baud;
+    uint32_t __baud;          ///< Baud rate value
 
 public:
 #if defined(ARDUINO_AVR_UNO) || defined(ESP8266)
+    /**
+     * @fn DFRobot_HumanPose_UART
+     * @brief Constructor of DFRobot_HumanPose_UART class (for UNO/ESP8266)
+     * @param sSerial Pointer to SoftwareSerial object
+     * @param baud Baud rate value (e.g., 921600)
+     */
     DFRobot_HumanPose_UART(SoftwareSerial *sSerial, uint32_t baud);
 #else
+    /**
+     * @fn DFRobot_HumanPose_UART
+     * @brief Constructor of DFRobot_HumanPose_UART class
+     * @param hSerial Pointer to HardwareSerial object (typically &Serial1)
+     * @param baud Baud rate value (default is 921600)
+     * @param rxpin RX pin number (default is 0, required for ESP32)
+     * @param txpin TX pin number (default is 0, required for ESP32)
+     */
     DFRobot_HumanPose_UART(HardwareSerial *hSerial, uint32_t baud, uint8_t rxpin = 0, uint8_t txpin = 0);
 #endif
+    
+    /**
+     * @fn ~DFRobot_HumanPose_UART
+     * @brief Destructor of DFRobot_HumanPose_UART class
+     */
     ~DFRobot_HumanPose_UART();
+    
+    /**
+     * @fn begin
+     * @brief Initialize the UART communication and sensor
+     * @return True if initialization is successful, otherwise false
+     */
     bool begin(void);
+    
+    /**
+     * @fn setBaud
+     * @brief Set the UART baud rate
+     * 
+     * Configures the UART communication baud rate. Users can choose the appropriate
+     * baud rate based on their needs to ensure stable and effective communication
+     * with the device.
+     *
+     * @param baud Baud rate configuration of type `eBaudConfig_t`, with possible values including:
+     *             - `eBaud_9600`  - 9600 baud
+     *             - `eBaud_14400` - 14400 baud
+     *             - `eBaud_19200` - 19200 baud
+     *             - `eBaud_38400` - 38400 baud
+     *             - `eBaud_57600` - 57600 baud
+     *             - `eBaud_115200`- 115200 baud
+     *             - `eBaud_230400`- 230400 baud
+     *             - `eBaud_460800`- 460800 baud
+     *             - `eBaud_921600`- 921600 baud (Default)
+     * @return True if the baud rate is set successfully, otherwise false
+     */
+    bool setBaud(eBaudConfig_t baud);
 
 protected:
+    /**
+     * @fn available
+     * @brief Check if data is available for reading via UART
+     * @return Number of bytes available for reading
+     */
     int available();
+    
+    /**
+     * @fn read
+     * @brief Read data from the sensor via UART
+     * @param data Buffer to store the read data
+     * @param len Maximum number of bytes to read
+     * @return Number of bytes actually read
+     */
     int read(char *data, int len);
+    
+    /**
+     * @fn write
+     * @brief Write data to the sensor via UART
+     * @param data Data to write
+     * @param len Number of bytes to write
+     * @return Number of bytes actually written
+     */
     int write(const char *data, int len);
 };
 

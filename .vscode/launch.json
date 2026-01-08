@@ -8,8 +8,8 @@
       "args": [],
       "stopAtEntry": false,
       "externalConsole": true,
-      "cwd": "c:/Users/T2767/AppData/Local/Arduino15/libraries/DFRobot_HumanPose",
-      "program": "c:/Users/T2767/AppData/Local/Arduino15/libraries/DFRobot_HumanPose/build/Debug/outDebug",
+      "cwd": "d:/Users/T2767/AppData/Local/Arduino15/libraries/DFRobot_HumanPose",
+      "program": "d:/Users/T2767/AppData/Local/Arduino15/libraries/DFRobot_HumanPose/build/Debug/outDebug",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [

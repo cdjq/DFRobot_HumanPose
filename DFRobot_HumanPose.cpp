@@ -54,6 +54,11 @@ char *strnstr(const char *haystack, const char *needle, size_t n)
 
 // ============ Base Class: DFRobot_HumanPose ============
 
+/**
+ * @fn DFRobot_HumanPose::DFRobot_HumanPose
+ * @brief Constructor of DFRobot_HumanPose class
+ * @details Initializes internal variables and sets default values
+ */
 DFRobot_HumanPose::DFRobot_HumanPose()
 {
     _wait_delay = 2;
@@ -65,6 +70,11 @@ DFRobot_HumanPose::DFRobot_HumanPose()
     payload = NULL;
 }
 
+/**
+ * @fn DFRobot_HumanPose::~DFRobot_HumanPose
+ * @brief Destructor of DFRobot_HumanPose class
+ * @details Frees allocated memory for transmit and receive buffers
+ */
 DFRobot_HumanPose::~DFRobot_HumanPose()
 {
     if (tx_buf)
@@ -79,6 +89,12 @@ DFRobot_HumanPose::~DFRobot_HumanPose()
     }
 }
 
+/**
+ * @fn DFRobot_HumanPose::begin
+ * @brief Initialize the sensor
+ * @details Allocates memory for transmit and receive buffers, and initializes the JSON response parser
+ * @return True if initialization is successful, otherwise false
+ */
 bool DFRobot_HumanPose::begin()
 {
     // Allocate buffers
@@ -98,6 +114,15 @@ bool DFRobot_HumanPose::begin()
     return true;
 }
 
+/**
+ * @fn DFRobot_HumanPose::wait
+ * @brief Wait for command response from the sensor
+ * @details Reads data from the sensor and waits for a response matching the specified command type and name
+ * @param type Command type (CMD_TYPE_RESPONSE, CMD_TYPE_EVENT, or CMD_TYPE_LOG)
+ * @param cmd Command name string to match
+ * @param timeout Timeout value in milliseconds (default is 1000)
+ * @return Status code of type `eCmdCode_t`. Returns `eOK` if response received successfully, `eTimedOut` if timeout occurs
+ */
 int DFRobot_HumanPose::wait(int type, const char *cmd, uint32_t timeout)
 {
     int ret = eOK;
@@ -152,7 +177,29 @@ int DFRobot_HumanPose::wait(int type, const char *cmd, uint32_t timeout)
                 {
                     continue;
                 }
-
+                LDBG(response["type"].as<uint8_t>())
+                if (response["type"] == CMD_TYPE_RESPONSE){
+                    const char *event_name = response["name"];
+                    LDBG("RESPONSE");
+                    if (event_name && strstr(event_name, cmd)){
+                        LDBG("NAME");
+                        if (strstr(event_name, AT_HANDLIST) || strstr(event_name, AT_POSELIST)){
+                            LDBG("LEARN LIST");
+                            JsonArray learn_data = response["data"].as<JsonArray>();
+                            for(size_t i = 0; i < learn_data.size(); i++) {
+                                _learn_list.push_back(learn_data[i].as<std::string>());
+                            }
+                        }
+                        else if(strstr(event_name, AT_TSCORE) || strstr(event_name, AT_TIOU) || strstr(event_name, AT_TSIMILARITY)){
+                            LDBG("CONFIG")
+                            _ret_data = response["data"];
+                        } 
+                        else if(strstr(event_name, AT_MODEL)){
+                            JsonObject data = response["data"].as<JsonObject>();
+                            _ret_data = data["id"];
+                        }
+                    }
+                }
                 if (response["type"] == CMD_TYPE_EVENT)
                 {
                     parser_event();
@@ -186,6 +233,12 @@ int DFRobot_HumanPose::wait(int type, const char *cmd, uint32_t timeout)
     return eTimedOut;
 }
 
+/**
+ * @fn DFRobot_HumanPose::parser_event
+ * @brief Parse event data from the sensor
+ * @details Parses JSON event data and extracts pose_keypoints or hand_keypoints information,
+ *          populating the internal keypoints vector with detection results
+ */
 void DFRobot_HumanPose::parser_event()
 {
     const char *event_name = response["name"];
@@ -196,12 +249,12 @@ void DFRobot_HumanPose::parser_event()
         // ---- pose_keypoints ----
         if (data["pose_keypoints"].is<JsonArray>())
         {
-            _kps.clear();
+            _keypoints.clear();
             JsonArray keypoints = data["pose_keypoints"].as<JsonArray>();
 
             for (size_t i = 0; i < keypoints.size(); i++)
             {
-                sKps_t k;
+                sKeypoints_t k;
                 JsonArray box = keypoints[i][0].as<JsonArray>();
                 JsonArray points = keypoints[i][1].as<JsonArray>();
 
@@ -222,19 +275,19 @@ void DFRobot_HumanPose::parser_event()
                     p.target = points[j][3] | 0;
                     k.points.push_back(p);
                 }
-                _kps.push_back(k);
+                _keypoints.push_back(k);
             }
         }
 
         // ---- hand_keypoints ----
         else if (data["hand_keypoints"].is<JsonArray>())
         {
-            _kps.clear();
+            _keypoints.clear();
             JsonArray keypoints = data["hand_keypoints"].as<JsonArray>();
 
             for (size_t i = 0; i < keypoints.size(); i++)
             {
-                sKps_t k;
+                sKeypoints_t k;
                 JsonArray box = keypoints[i][0].as<JsonArray>();
                 JsonArray points = keypoints[i][1].as<JsonArray>();
 
@@ -255,12 +308,20 @@ void DFRobot_HumanPose::parser_event()
                     p.target = 0;
                     k.points.push_back(p);
                 }
-                _kps.push_back(k);
+                _keypoints.push_back(k);
             }
         }
     }
 }
 
+/**
+ * @fn DFRobot_HumanPose::getResult
+ * @brief Get detection results from the sensor
+ * @details Sends an INVOKE command to trigger detection and waits for the response and event data
+ * @return Status code of type `eCmdCode_t`. Returns `eOK` if results are successfully retrieved,
+ *         otherwise returns an error code (typically `eTimedOut`)
+ * @note After successful execution, detection results are available via the keypoints() method
+ */
 DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getResult()
 {
     char cmd[64] = {0};
@@ -286,6 +347,7 @@ DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::setTScore(uint8_t tscore)
 
     if (wait(CMD_TYPE_RESPONSE, AT_TSCORE) == eOK)
     {
+        LDBG("SCORE OK");
         return eOK;
     }
     return eTimedOut;
@@ -317,20 +379,34 @@ DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::setModel(eModel_t model)
     return eTimedOut;
 }
 
-DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getTScore()
+DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::setSimilarity(uint8_t Similarity)
 {
     char cmd[64] = {0};
-    snprintf(cmd, sizeof(cmd), CMD_PRE "%s?" CMD_SUF, AT_TSCORE);
+    snprintf(cmd, sizeof(cmd), CMD_PRE "%s=%d" CMD_SUF, AT_TSIMILARITY, (int)Similarity);
     write(cmd, strlen(cmd));
 
-    if (wait(CMD_TYPE_RESPONSE, AT_TSCORE) == eOK)
+    if (wait(CMD_TYPE_RESPONSE, AT_TSIMILARITY) == eOK)
     {
         return eOK;
     }
     return eTimedOut;
 }
 
-DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getTIOU()
+DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getTScore(uint8_t *score)
+{
+    char cmd[64] = {0};
+    snprintf(cmd, sizeof(cmd), CMD_PRE "%s?" CMD_SUF, AT_TSCORE);
+    write(cmd, strlen(cmd));
+    *score = 0;
+    if (wait(CMD_TYPE_RESPONSE, AT_TSCORE) == eOK)
+    {
+        *score = _ret_data;
+        return eOK;
+    }
+    return eTimedOut;
+}
+
+DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getTIOU(uint8_t *iou)
 {
     char cmd[64] = {0};
     snprintf(cmd, sizeof(cmd), CMD_PRE "%s?" CMD_SUF, AT_TIOU);
@@ -338,12 +414,13 @@ DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getTIOU()
 
     if (wait(CMD_TYPE_RESPONSE, AT_TIOU) == eOK)
     {
+        *iou = _ret_data;
         return eOK;
     }
     return eTimedOut;
 }
 
-DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getModel()
+DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getModel(char* model)
 {
     char cmd[64] = {0};
     snprintf(cmd, sizeof(cmd), CMD_PRE "%s?" CMD_SUF, AT_MODEL);
@@ -351,23 +428,85 @@ DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getModel()
 
     if (wait(CMD_TYPE_RESPONSE, AT_MODEL) == eOK)
     {
+        if(_ret_data == eHand) {
+            strcpy(model, "HAND");
+        }
+        else if(_ret_data == ePose) {
+            strcpy(model, "POSE");
+        }
         return eOK;
     }
     return eTimedOut;
 }
 
+DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getSimilarity(uint8_t *Similarity)
+{
+    char cmd[64] = {0};
+    snprintf(cmd, sizeof(cmd), CMD_PRE "%s?" CMD_SUF, AT_TSIMILARITY);
+    write(cmd, strlen(cmd));
+
+    if (wait(CMD_TYPE_RESPONSE, AT_TSIMILARITY) == eOK)
+    {
+        *Similarity = _ret_data;
+        return eOK;
+    }
+    return eTimedOut;
+}
+
+std::vector<std::string> DFRobot_HumanPose::getLearnList(eModel_t model)
+{   
+    char cmd[64] = {0};
+    _learn_list.clear();
+    if (model == ePose){
+        snprintf(cmd, sizeof(cmd), CMD_PRE "%s" CMD_SUF, AT_POSELIST);
+        write(cmd, strlen(cmd));
+
+        if (wait(CMD_TYPE_RESPONSE, AT_POSELIST) == eOK)
+        {
+            LDBG("POSE OK");
+            return _learn_list;
+        }
+    } else {
+        snprintf(cmd, sizeof(cmd), CMD_PRE "%s" CMD_SUF, AT_HANDLIST);
+        write(cmd, strlen(cmd));
+
+        if (wait(CMD_TYPE_RESPONSE, AT_HANDLIST) == eOK)
+        {   
+            LDBG("HAND OK");
+            return _learn_list;
+        }
+    }
+    return _learn_list;
+}
+
 // ============ Derived Class: DFRobot_HumanPose_I2C ============
 
+/**
+ * @fn DFRobot_HumanPose_I2C::DFRobot_HumanPose_I2C
+ * @brief Constructor of DFRobot_HumanPose_I2C class
+ * @param wire Pointer to TwoWire object (typically &Wire)
+ * @param address I2C device address (default is 0x3A)
+ */
 DFRobot_HumanPose_I2C::DFRobot_HumanPose_I2C(TwoWire *wire, uint8_t address)
 {
     _wire = wire;
     __address = address;
 }
 
+/**
+ * @fn DFRobot_HumanPose_I2C::~DFRobot_HumanPose_I2C
+ * @brief Destructor of DFRobot_HumanPose_I2C class
+ */
 DFRobot_HumanPose_I2C::~DFRobot_HumanPose_I2C()
 {
 }
 
+/**
+ * @fn DFRobot_HumanPose_I2C::begin
+ * @brief Initialize the I2C communication and sensor
+ * @details Initializes the I2C bus, sets the I2C clock speed, and calls the base class begin() method
+ * @return True if initialization is successful, otherwise false
+ */
 bool DFRobot_HumanPose_I2C::begin(void)
 {
     _wire->begin();
@@ -485,12 +624,26 @@ int DFRobot_HumanPose_I2C::write(const char *data, int len)
 // ============ Derived Class: DFRobot_HumanPose_UART ============
 
 #if defined(ARDUINO_AVR_UNO) || defined(ESP8266)
+/**
+ * @fn DFRobot_HumanPose_UART::DFRobot_HumanPose_UART
+ * @brief Constructor of DFRobot_HumanPose_UART class (for UNO/ESP8266)
+ * @param sSerial Pointer to SoftwareSerial object
+ * @param baud Baud rate value (e.g., 921600)
+ */
 DFRobot_HumanPose_UART::DFRobot_HumanPose_UART(SoftwareSerial *sSerial, uint32_t baud)
 {
     _serial = sSerial;
     __baud = baud;
 }
 #else
+/**
+ * @fn DFRobot_HumanPose_UART::DFRobot_HumanPose_UART
+ * @brief Constructor of DFRobot_HumanPose_UART class
+ * @param hSerial Pointer to HardwareSerial object (typically &Serial1)
+ * @param baud Baud rate value (default is 921600)
+ * @param rxpin RX pin number (default is 0, required for ESP32)
+ * @param txpin TX pin number (default is 0, required for ESP32)
+ */
 DFRobot_HumanPose_UART::DFRobot_HumanPose_UART(HardwareSerial *hSerial, uint32_t baud = UART_BAUD, uint8_t rxpin, uint8_t txpin)
 {
     _serial = hSerial;
@@ -500,10 +653,20 @@ DFRobot_HumanPose_UART::DFRobot_HumanPose_UART(HardwareSerial *hSerial, uint32_t
 }
 #endif
 
+/**
+ * @fn DFRobot_HumanPose_UART::~DFRobot_HumanPose_UART
+ * @brief Destructor of DFRobot_HumanPose_UART class
+ */
 DFRobot_HumanPose_UART::~DFRobot_HumanPose_UART()
 {
 }
 
+/**
+ * @fn DFRobot_HumanPose_UART::begin
+ * @brief Initialize the UART communication and sensor
+ * @details Initializes the serial port with the configured baud rate, sets timeout, and calls the base class begin() method
+ * @return True if initialization is successful, otherwise false
+ */
 bool DFRobot_HumanPose_UART::begin(void)
 {
     _wait_delay = 2;
@@ -518,6 +681,19 @@ bool DFRobot_HumanPose_UART::begin(void)
     _serial->flush();
 
     return DFRobot_HumanPose::begin();
+}
+
+bool DFRobot_HumanPose_UART::setBaud(eBaudConfig_t baud)
+{
+    char cmd[64] = {0};
+    snprintf(cmd, sizeof(cmd), CMD_PRE "%s=%d" CMD_SUF, AT_BAUD, baud);
+    write(cmd, strlen(cmd));
+
+    if (wait(CMD_TYPE_RESPONSE, AT_BAUD) == eOK)
+    {
+        return true;
+    }
+    return false;
 }
 
 int DFRobot_HumanPose_UART::available()
