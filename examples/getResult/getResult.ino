@@ -6,7 +6,7 @@
  * @license The MIT License (MIT)
  * @author DFRobot
  * @version V1.0.0
- * @date 2025-01-01
+ * @date 2026-01-09
  */
 
 #include <DFRobot_HumanPose.h>
@@ -15,11 +15,7 @@
 #define HUMANPOSE_COMM_UART  // Use UART communication
 // #define HUMANPOSE_COMM_I2C  // Use I2C communication
 
-/**
- * I2C address configuration
- * Default I2C address is 0x3A
- */
-const uint8_t I2C_ADDR = 0x3A;
+
 
 #if defined(HUMANPOSE_COMM_UART)
 /* ---------------------------------------------------------------------------------------------------------------------
@@ -31,8 +27,21 @@ const uint8_t I2C_ADDR = 0x3A;
  *     TX        |        MCU RX          |     Serial1 RX1      |     4     |   4/D7  |  25/D2|     X      |  rx1  |
  * ----------------------------------------------------------------------------------------------------------------------*/
 // Initialize UART communication: Serial1, baud rate 921600, RX pin 25, TX pin 26 (ESP32)
-DFRobot_HumanPose_UART humanPose(&Serial1, 921600, 25, 26);
+#if defined(ARDUINO_AVR_UNO) || defined(ESP8266)
+#include <SoftwareSerial.h>
+SoftwareSerial mySerial(4, 5);
+DFRobot_HumanPose_UART humanPose(&mySerial, 921600);
+#elif defined(ESP32)
+DFRobot_HumanPose_UART humanPose(&Serial1, 921600, /*RX pin*/25, /*TX pin*/26);
+#else
+DFRobot_HumanPose_UART humanPose(&Serial1, 921600);
+#endif
 #elif defined(HUMANPOSE_COMM_I2C)
+/**
+ * I2C address configuration
+ * Default I2C address is 0x3A
+ */
+const uint8_t I2C_ADDR = 0x3A;
 // Initialize I2C communication: Wire, I2C address 0x3A
 DFRobot_HumanPose_I2C humanPose(&Wire, I2C_ADDR);
 #else

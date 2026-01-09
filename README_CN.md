@@ -196,7 +196,7 @@ HumanPose是一款可以检测人体姿态和手势的传感器
 
     /**
      * @fn DFRobot_HumanPose_UART
-     * @brief DFRobot_HumanPose_UART 类的构造函数（ESP32/其他）
+     * @brief DFRobot_HumanPose_UART 类的构造函数
      * @param hSerial HardwareSerial 对象指针（通常为 &Serial1）
      * @param baud 波特率值（默认为 921600）
      * @param rxpin RX 引脚号（默认为 0，ESP32 需要）
@@ -256,9 +256,9 @@ Raspberry Pi       |      √       |              |             |
 
 ## 历史
 
-- Date 2025-01-01
+- Date 2026-01-09
 - Version V1.0.0
 
 ## 贡献者
 
-Written by DFRobot, 2025.01.01 (Welcome to our [website](https://www.dfrobot.com/))
+Written by DFRobot, 2026.01.09 (Welcome to our [website](https://www.dfrobot.com/))

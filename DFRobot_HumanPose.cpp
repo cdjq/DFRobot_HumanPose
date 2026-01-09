@@ -7,7 +7,7 @@
  * @license     The MIT License (MIT)
  * @author      DFRobot
  * @version     V1.0.0
- * @date        2025-01-01
+ * @date        2026-01-09
  * @url         https://github.com/DFRobot/DFRobot_HumanPose
  */
 
@@ -98,10 +98,12 @@ DFRobot_HumanPose::~DFRobot_HumanPose()
 bool DFRobot_HumanPose::begin()
 {
     // Allocate buffers
-    rx_buf = (char *)malloc(RX_MAX_SIZE);
-    tx_buf = (char *)malloc(TX_MAX_SIZE);
-    rx_len = RX_MAX_SIZE;
-    tx_len = TX_MAX_SIZE;
+    if(!rx_buf || !tx_buf){
+        rx_buf = (char *)malloc(RX_MAX_SIZE);
+        tx_buf = (char *)malloc(TX_MAX_SIZE);
+        rx_len = RX_MAX_SIZE;
+        tx_len = TX_MAX_SIZE;
+    }
 
     if (!rx_buf || !tx_buf)
     {
@@ -110,6 +112,12 @@ bool DFRobot_HumanPose::begin()
 
     rx_end = 0;
     response.clear();
+
+    char name[24]="";
+    if(getName(name) != eOK || !strstr(name, HUMANPOSE_NAME)) {
+        LDBG(name);
+        return false;
+    }
 
     return true;
 }
@@ -197,6 +205,10 @@ int DFRobot_HumanPose::wait(int type, const char *cmd, uint32_t timeout)
                         else if(strstr(event_name, AT_MODEL)){
                             JsonObject data = response["data"].as<JsonObject>();
                             _ret_data = data["id"];
+                        }
+                        else if(strstr(event_name, AT_NAME)) {
+                            const char* s = response["data"] | "";
+                            snprintf(_name, sizeof(_name), "%s", s);
                         }
                     }
                 }
@@ -477,6 +489,20 @@ std::vector<std::string> DFRobot_HumanPose::getLearnList(eModel_t model)
         }
     }
     return _learn_list;
+}
+
+DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getName(char *name)
+{
+    char cmd[64] = {0};
+    snprintf(cmd, sizeof(cmd), CMD_PRE "%s?" CMD_SUF, AT_NAME);
+    write(cmd, strlen(cmd));
+    
+    if (wait(CMD_TYPE_RESPONSE, AT_NAME) == eOK)
+    {
+        strcpy(name, _name);
+        return eOK;
+    }
+    return eTimedOut;
 }
 
 // ============ Derived Class: DFRobot_HumanPose_I2C ============

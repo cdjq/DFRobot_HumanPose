@@ -196,7 +196,7 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
 
     /**
      * @fn DFRobot_HumanPose_UART
-     * @brief Constructor of DFRobot_HumanPose_UART class (ESP32/Other)
+     * @brief Constructor of DFRobot_HumanPose_UART class
      * @param hSerial Pointer to HardwareSerial object (typically &Serial1)
      * @param baud Baud rate value (default is 921600)
      * @param rxpin RX pin number (default is 0, required for ESP32)
@@ -206,7 +206,7 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
 
     /**
      * @fn DFRobot_HumanPose_UART
-     * @brief Constructor of DFRobot_HumanPose_UART class (UNO/ESP8266)
+     * @brief Constructor of DFRobot_HumanPose_UART class (for UNO/ESP8266)
      * @param sSerial Pointer to SoftwareSerial object
      * @param baud Baud rate value (e.g., 921600)
      */
@@ -257,9 +257,9 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
 
 ## History
 
-- Date 2025-01-01
+- Date 2026-01-09
 - Version V1.0.0
 
 ## Credits
 
-Written by DFRobot, 2025.01.01 (Welcome to our [website](https://www.dfrobot.com/))
+Written by DFRobot, 2026.01.09 (Welcome to our [website](https://www.dfrobot.com/))

@@ -7,7 +7,7 @@
  * @license     The MIT License (MIT)
  * @author      DFRobot
  * @version     V1.0.0
- * @date        2025-01-01
+ * @date        2026-01-09
  * @url         https://github.com/DFRobot/DFRobot_HumanPose
  * 
  * @note For more information about the sensor, please visit: https://github.com/DFRobot/DFRobot_RTU
@@ -37,6 +37,7 @@ class DFRobot_HumanPose {
 protected:
 
 #define I2C_ADDRESS (0x3A)
+#define HUMANPOSE_NAME "DFRobot Human Pose"
 
 #define HEADER_LEN (uint8_t)4
 #define MAX_PL_LEN (uint8_t)250
@@ -84,9 +85,7 @@ protected:
 #define CMD_TYPE_EVENT 1
 #define CMD_TYPE_LOG 2
 
-static constexpr const char AT_ID[] = "ID?";
-static constexpr const char AT_NAME[] = "NAME?";
-static constexpr const char AT_VERSION[] = "VER?";
+static constexpr const char AT_NAME[] = "NAME";
 static constexpr const char AT_INVOKE[] = "INVOKE";
 static constexpr const char AT_TSCORE[] = "TSCORE";
 static constexpr const char AT_TIOU[] = "TIOU";
@@ -94,7 +93,7 @@ static constexpr const char AT_MODELS[] = "MODELS?";
 static constexpr const char AT_MODEL[] = "MODEL";
 static constexpr const char EVENT_INVOKE[] = "INVOKE";
 static constexpr const char AT_TSIMILARITY[] = "TSIMILARITY";
-static constexpr const char AT_BAUD[] = "BAUD";
+static constexpr const char AT_BAUD[] = "BAUDRATE";
 static constexpr const char AT_POSELIST[] = "POSELIST?";
 static constexpr const char AT_HANDLIST[] = "HANDLIST?";
 public:
@@ -193,11 +192,61 @@ protected:
     char *payload;
 
     uint8_t _ret_data;
+    char _name[24]="";
     std::vector<std::string> _learn_list;
     // Command processing helper functions
+    /**
+     * @fn wait
+     * @brief Wait for command response from the sensor
+     * @details Internal helper function to wait for response matching the specified command type and name
+     * @param type Command type (CMD_TYPE_RESPONSE, CMD_TYPE_EVENT, or CMD_TYPE_LOG)
+     * @param cmd Command name string to match
+     * @param timeout Timeout value in milliseconds (default is 1000)
+     * @return Status code of type `eCmdCode_t`. Returns `eOK` if response received successfully, `eTimedOut` if timeout occurs
+     */
     int wait(int type, const char *cmd, uint32_t timeout = 1000);
+    
+    /**
+     * @fn parser_event
+     * @brief Parse event data from the sensor
+     * @details Internal helper function to parse JSON event data and extract pose_keypoints or hand_keypoints information,
+     *          populating the internal keypoints vector with detection results
+     */
     void parser_event();
     
+    /**
+     * @fn getName
+     * @brief Get the device name
+     * @details Internal helper function to retrieve the device name from the sensor
+     * @param name Pointer to character buffer to store the device name
+     * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
+     */
+    eCmdCode_t getName(char* name);
+    /**
+     * @fn available
+     * @brief Check if data is available for reading (pure virtual function)
+     * @return Number of bytes available for reading
+     */
+    virtual int available() = 0;
+    
+    /**
+     * @fn read
+     * @brief Read data from the sensor (pure virtual function)
+     * @param data Buffer to store the read data
+     * @param len Maximum number of bytes to read
+     * @return Number of bytes actually read
+     */
+    virtual int read(char *data, int len) = 0;
+    
+    /**
+     * @fn write
+     * @brief Write data to the sensor (pure virtual function)
+     * @param data Data to write
+     * @param len Number of bytes to write
+     * @return Number of bytes actually written
+     */
+    virtual int write(const char *data, int len) = 0;
+
 public:
     /**
      * @fn DFRobot_HumanPose
@@ -226,31 +275,6 @@ public:
      *       You can access the results using the keypoints() method.
      */
     eCmdCode_t getResult();
-    
-    /**
-     * @fn available
-     * @brief Check if data is available for reading (pure virtual function)
-     * @return Number of bytes available for reading
-     */
-    virtual int available() = 0;
-    
-    /**
-     * @fn read
-     * @brief Read data from the sensor (pure virtual function)
-     * @param data Buffer to store the read data
-     * @param len Maximum number of bytes to read
-     * @return Number of bytes actually read
-     */
-    virtual int read(char *data, int len) = 0;
-    
-    /**
-     * @fn write
-     * @brief Write data to the sensor (pure virtual function)
-     * @param data Data to write
-     * @param len Number of bytes to write
-     * @return Number of bytes actually written
-     */
-    virtual int write(const char *data, int len) = 0;
 
     /**
      * @fn setTScore
@@ -361,6 +385,9 @@ public:
      */
     std::vector<std::string> getLearnList(eModel_t model);
 
+
+    
+
     /**
      * @fn boxes
      * @brief Get reference to the bounding boxes vector
@@ -460,16 +487,15 @@ public:
      * @brief Baud rate configuration options
      */
     typedef enum {
-        eBaud_9600,     ///< Baud rate 9600
-        eBaud_14400,    ///< Baud rate 14400
-        eBaud_19200,    ///< Baud rate 19200
-        eBaud_38400,    ///< Baud rate 38400
-        eBaud_57600,    ///< Baud rate 57600
-        eBaud_115200,   ///< Baud rate 115200
-        eBaud_230400,   ///< Baud rate 230400
-        eBaud_460800,   ///< Baud rate 460800
-        eBaud_921600,   ///< Baud rate 921600 (Default)
-        eBaud_MAX       ///< Maximum baud rate value
+        eBaud_9600      = 9600,     ///< Baud rate 9600
+        eBaud_14400     = 14400,    ///< Baud rate 14400
+        eBaud_19200     = 19200,    ///< Baud rate 19200
+        eBaud_38400     = 38400,    ///< Baud rate 38400
+        eBaud_57600     = 57600,    ///< Baud rate 57600
+        eBaud_115200    = 115200,   ///< Baud rate 115200
+        eBaud_230400    = 230400,   ///< Baud rate 230400
+        eBaud_460800    = 460800,   ///< Baud rate 460800
+        eBaud_921600    = 921600,   ///< Baud rate 921600 (Default)
     } eBaudConfig_t;
     
 protected:
