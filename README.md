@@ -23,9 +23,6 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
 2. To use this library, you also need to download the dependency: https://github.com/bblanchon/ArduinoJson
 
 ## Methods
-
-### Base Class: DFRobot_HumanPose
-
 ```c++
     /**
      * @fn begin
@@ -155,54 +152,6 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
      *       After use, the result will be marked as used.
      */
     Result *popResult();
-```
-
-### I2C Communication Class: DFRobot_HumanPose_I2C
-
-```c++
-    /**
-     * @fn DFRobot_HumanPose_I2C
-     * @brief Constructor of DFRobot_HumanPose_I2C class
-     * @param wire Pointer to TwoWire object (typically &Wire)
-     * @param address I2C device address (default is 0x3A)
-     */
-    DFRobot_HumanPose_I2C(TwoWire *wire, uint8_t address);
-
-    /**
-     * @fn begin
-     * @brief Initialize the I2C communication and sensor
-     * @return True if initialization is successful, otherwise false
-     */
-    bool begin(void);
-```
-
-### UART Communication Class: DFRobot_HumanPose_UART
-
-```c++
-    /**
-     * @fn DFRobot_HumanPose_UART
-     * @brief Constructor of DFRobot_HumanPose_UART class
-     * @param hSerial Pointer to HardwareSerial object (typically &Serial1)
-     * @param baud Baud rate value (default is 921600)
-     * @param rxpin RX pin number (default is 0, required for ESP32)
-     * @param txpin TX pin number (default is 0, required for ESP32)
-     */
-    DFRobot_HumanPose_UART(HardwareSerial *hSerial, uint32_t baud, uint8_t rxpin = 0, uint8_t txpin = 0);
-
-    /**
-     * @fn DFRobot_HumanPose_UART
-     * @brief Constructor of DFRobot_HumanPose_UART class (for UNO/ESP8266)
-     * @param sSerial Pointer to SoftwareSerial object
-     * @param baud Baud rate value (e.g., 921600)
-     */
-    DFRobot_HumanPose_UART(SoftwareSerial *sSerial, uint32_t baud);
-
-    /**
-     * @fn begin
-     * @brief Initialize the UART communication and sensor
-     * @return True if initialization is successful, otherwise false
-     */
-    bool begin(void);
 
     /**
      * @fn setBaud
@@ -225,18 +174,21 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
      * @return True if the baud rate is set successfully, otherwise false
      */
     bool setBaud(eBaudConfig_t baud);
-```
 
-### Result Classes: Result, PoseResult, HandResult
-
-```c++
     // Result base class contains the following public members:
     uint8_t id;           // Detected target ID
     uint16_t xLeft;        // Bounding box top-left X coordinate
     uint16_t yTop;         // Bounding box top-left Y coordinate
     uint16_t width;        // Bounding box width
     uint16_t height;       // Bounding box height
-    uint8_t confidence;    // Confidence (0-100)
+    /**
+     * @brief Score of the result (0–100).
+     *
+     * Meaning depends on `id`:
+     * - if `id == 0`: `score` is the detection confidence (probability/quality of detection).
+     * - if `id != 0`: `score` is the similarity score (match degree to a learned class/gesture/pose).
+     */
+    uint8_t score;         // score (0-100)
     String name;           // Detected target name
     bool used;             // Used flag
 

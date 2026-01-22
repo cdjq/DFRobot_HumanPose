@@ -12,8 +12,8 @@
 #include <DFRobot_HumanPose.h>
 
 /* >> Step 1: Please choose your communication method below */
-#define HUMANPOSE_COMM_UART  // Use UART communication
-// #define HUMANPOSE_COMM_I2C  // Use I2C communication
+// #define HUMANPOSE_COMM_UART  // Use UART communication
+#define HUMANPOSE_COMM_I2C  // Use I2C communication
 
 
 
@@ -78,8 +78,16 @@ void loop() {
         while (humanPose.availableResult()) {
             PoseResult *result = static_cast<PoseResult *>(
                 humanPose.popResult());
+            Serial.println("id: " + String(result->id));
             Serial.println("name: " + result->name);
-            Serial.println("confidence: " + String(result->confidence));
+            /**
+             * @brief Score of the result (0–100).
+             *
+             * Meaning depends on `id`:
+             * - if `id == 0`: `score` is the detection confidence (probability/quality of detection).
+             * - if `id != 0`: `score` is the similarity score (match degree to a learned class/gesture/pose).
+             */
+            Serial.println("score: " + String(result->score));
             Serial.println("xLeft: " + String(result->xLeft));
             Serial.println("yTop: " + String(result->yTop));
             Serial.println("width: " + String(result->width));

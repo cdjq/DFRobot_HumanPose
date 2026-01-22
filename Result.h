@@ -4,7 +4,12 @@
 #include <ArduinoJson.h>
 
 struct PointU16 {uint16_t x{}, y{};};
-
+// #define ENABLE_DBG
+#ifdef ENABLE_DBG
+#define LDBG(...)  {Serial.print("["); Serial.print(__FUNCTION__); Serial.print("(): "); Serial.print(__LINE__); Serial.print(" ] "); Serial.println(__VA_ARGS__);}
+#else
+#define LDBG(...)
+#endif
 class Result {
 public:
   Result(JsonArray data, JsonArrayConst names);
@@ -16,7 +21,7 @@ public:
   uint16_t yTop;
   uint16_t width;
   uint16_t height;
-  uint8_t confidence;
+  uint8_t score;
   String name;
   bool used = false;
 };

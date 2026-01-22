@@ -282,7 +282,7 @@ void DFRobot_HumanPose::parser_event()
             {
                 if(_result[i]!=NULL) delete _result[i];
                 
-                _result[i] = new PoseResult(keypoints[i], arr);
+                _result[i] = new HandResult(keypoints[i], arr);
 
             }
         }

@@ -23,9 +23,6 @@ HumanPose是一款可以检测人体姿态和手势的传感器库。
 2. 使用该库还需下载依赖：https://github.com/bblanchon/ArduinoJson
 
 ## 方法
-
-### 基础类：DFRobot_HumanPose
-
 ```c++
     /**
      * @fn begin
@@ -155,54 +152,6 @@ HumanPose是一款可以检测人体姿态和手势的传感器库。
      *       使用完后，结果会被标记为已使用。
      */
     Result *popResult();
-```
-
-### I2C通信类：DFRobot_HumanPose_I2C
-
-```c++
-    /**
-     * @fn DFRobot_HumanPose_I2C
-     * @brief DFRobot_HumanPose_I2C 类的构造函数
-     * @param wire TwoWire 对象指针（通常为 &Wire）
-     * @param address I2C 设备地址（默认为 0x3A）
-     */
-    DFRobot_HumanPose_I2C(TwoWire *wire, uint8_t address);
-
-    /**
-     * @fn begin
-     * @brief 初始化 I2C 通信和传感器
-     * @return 如果初始化成功返回 true，否则返回 false
-     */
-    bool begin(void);
-```
-
-### UART通信类：DFRobot_HumanPose_UART
-
-```c++
-    /**
-     * @fn DFRobot_HumanPose_UART
-     * @brief DFRobot_HumanPose_UART 类的构造函数
-     * @param hSerial HardwareSerial 对象指针（通常为 &Serial1）
-     * @param baud 波特率值（默认为 921600）
-     * @param rxpin RX 引脚号（默认为 0，ESP32 需要）
-     * @param txpin TX 引脚号（默认为 0，ESP32 需要）
-     */
-    DFRobot_HumanPose_UART(HardwareSerial *hSerial, uint32_t baud, uint8_t rxpin = 0, uint8_t txpin = 0);
-
-    /**
-     * @fn DFRobot_HumanPose_UART
-     * @brief DFRobot_HumanPose_UART 类的构造函数（UNO/ESP8266）
-     * @param sSerial SoftwareSerial 对象指针
-     * @param baud 波特率值（例如 921600）
-     */
-    DFRobot_HumanPose_UART(SoftwareSerial *sSerial, uint32_t baud);
-
-    /**
-     * @fn begin
-     * @brief 初始化 UART 通信和传感器
-     * @return 如果初始化成功返回 true，否则返回 false
-     */
-    bool begin(void);
 
     /**
      * @fn setBaud
@@ -224,11 +173,7 @@ HumanPose是一款可以检测人体姿态和手势的传感器库。
      * @return 如果成功设置波特率返回 true，否则返回 false
      */
     bool setBaud(eBaudConfig_t baud);
-```
 
-### 结果类：Result、PoseResult、HandResult
-
-```c++
     // Result 基类包含以下公共成员：
     uint8_t id;           // 检测目标ID
     uint16_t xLeft;        // 边界框左上角X坐标

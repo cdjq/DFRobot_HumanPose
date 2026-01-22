@@ -19,7 +19,7 @@ Result::Result(JsonArray data, JsonArrayConst names)
   yTop   = box[1] | 0;
   width  = box[2] | 0;
   height = box[3] | 0;
-  confidence  = box[4] | 0;
+  score  = box[4] | 0;
   id = box[5] | 0;
   name = "unknown";
   if(id != 0) {
@@ -58,6 +58,8 @@ PoseResult::PoseResult(JsonArray data, JsonArrayConst names) : Result(data, name
 HandResult::HandResult(JsonArray data, JsonArrayConst names) : Result(data, names)
 {
   JsonArray points = data[1].as<JsonArray>();
+  
+  LDBG(points.size());
   readPointU16(points, 0, wrist);
   readPointU16(points, 1, thumbCmc);
   readPointU16(points, 2, thumbMcp);

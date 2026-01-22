@@ -30,11 +30,11 @@
 #define ARDUINOJSON_ENABLE_STD_STRING 1
 
 // #define ENABLE_DBG
-#ifdef ENABLE_DBG
-#define LDBG(...)  {Serial.print("["); Serial.print(__FUNCTION__); Serial.print("(): "); Serial.print(__LINE__); Serial.print(" ] "); Serial.println(__VA_ARGS__);}
-#else
-#define LDBG(...)
-#endif
+// #ifdef ENABLE_DBG
+// #define LDBG(...)  {Serial.print("["); Serial.print(__FUNCTION__); Serial.print("(): "); Serial.print(__LINE__); Serial.print(" ] "); Serial.println(__VA_ARGS__);}
+// #else
+// #define LDBG(...)
+// #endif
 
 using LearnList = std::vector<std::string>;
 

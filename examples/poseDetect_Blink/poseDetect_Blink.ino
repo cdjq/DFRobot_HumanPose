@@ -64,11 +64,12 @@ void setup() {
     Serial.println("Sensor init success!");
     
     // Set detection model: eHand (hand detection) or ePose (human pose detection)
-    humanPose.setModelType(DFRobot_HumanPose::ePose);
+    humanPose.setModelType(DFRobot_HumanPose::eHand);
     
+
     // Configure detection threshold parameters
     humanPose.setIOU(45);        // Set IOU threshold (0-100), used for non-maximum suppression, default is typically 45
-    humanPose.setConfidence(70);      // Set detection confidence threshold (0-100), default is typically 60
+    humanPose.setConfidence(80);      // Set detection confidence threshold (0-100), default is typically 60
     humanPose.setLearnSimilarity(60);  // Set similarity threshold (0-100), used for matching learned targets, default is typically 60
 
     uint8_t iou, score, similarity;
@@ -80,7 +81,7 @@ void setup() {
     Serial.println(buf);
 
     // Get learn list for specified model
-    LearnList learnList = humanPose.getLearnList(DFRobot_HumanPose::ePose);
+    LearnList learnList = humanPose.getLearnList(DFRobot_HumanPose::eHand);
     
     // Print all learned target names
     Serial.println("Learn list:");
@@ -108,7 +109,7 @@ void loop() {
     if (humanPose.getResult() == DFRobot_HumanPose::eOK) {
         // Iterate through all detected targets
         while (humanPose.availableResult()) {
-            PoseResult *result = static_cast<PoseResult *>(
+            HandResult *result = static_cast<HandResult *>(
                 humanPose.popResult());
             if (result->id != 0) {
                 Serial.print("ID: ");
