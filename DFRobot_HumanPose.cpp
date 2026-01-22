@@ -261,66 +261,29 @@ void DFRobot_HumanPose::parser_event()
         // ---- pose_keypoints ----
         if (data["pose_keypoints"].is<JsonArray>())
         {
-            _keypoints.clear();
+            // _keypoints.clear();
             JsonArray keypoints = data["pose_keypoints"].as<JsonArray>();
-
+            JsonArrayConst arr = data["pose_class"]["available_classes"].as<JsonArrayConst>();
             for (size_t i = 0; i < keypoints.size(); i++)
             {
-                sKeypoints_t k;
-                JsonArray box = keypoints[i][0].as<JsonArray>();
-                JsonArray points = keypoints[i][1].as<JsonArray>();
+                if(_result[i]!=NULL) delete _result[i];
+                
+                _result[i] = new PoseResult(keypoints[i], arr);
 
-                k.box.x = box[0] | 0;
-                k.box.y = box[1] | 0;
-                k.box.w = box[2] | 0;
-                k.box.h = box[3] | 0;
-                k.box.score = box[4] | 0;
-                k.box.target = box[5] | 0;
-
-                for (size_t j = 0; j < points.size(); j++)
-                {
-                    sPoint_t p;
-                    p.x = points[j][0] | 0;
-                    p.y = points[j][1] | 0;
-                    p.z = 0;
-                    p.score = points[j][2] | 0;
-                    p.target = points[j][3] | 0;
-                    k.points.push_back(p);
-                }
-                _keypoints.push_back(k);
             }
         }
 
         // ---- hand_keypoints ----
         else if (data["hand_keypoints"].is<JsonArray>())
         {
-            _keypoints.clear();
             JsonArray keypoints = data["hand_keypoints"].as<JsonArray>();
-
+            JsonArrayConst arr = data["hand_class"]["available_classes"].as<JsonArrayConst>();
             for (size_t i = 0; i < keypoints.size(); i++)
             {
-                sKeypoints_t k;
-                JsonArray box = keypoints[i][0].as<JsonArray>();
-                JsonArray points = keypoints[i][1].as<JsonArray>();
+                if(_result[i]!=NULL) delete _result[i];
+                
+                _result[i] = new PoseResult(keypoints[i], arr);
 
-                k.box.x = box[0] | 0;
-                k.box.y = box[1] | 0;
-                k.box.w = box[2] | 0;
-                k.box.h = box[3] | 0;
-                k.box.score = box[4] | 0;
-                k.box.target = box[5] | 0;
-
-                for (size_t j = 0; j < points.size(); j++)
-                {
-                    sPoint_t p;
-                    p.x = points[j][0] | 0;
-                    p.y = points[j][1] | 0;
-                    p.z = 0;
-                    p.score = 0;
-                    p.target = 0;
-                    k.points.push_back(p);
-                }
-                _keypoints.push_back(k);
             }
         }
     }
@@ -351,10 +314,10 @@ DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getResult()
     return eTimedOut;
 }
 
-DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::setTScore(uint8_t tscore)
+DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::setConfidence(uint8_t confidence)
 {
     char cmd[64] = {0};
-    snprintf(cmd, sizeof(cmd), CMD_PRE "%s=%d" CMD_SUF, AT_TSCORE, tscore);
+    snprintf(cmd, sizeof(cmd), CMD_PRE "%s=%d" CMD_SUF, AT_TSCORE, confidence);
     write(cmd, strlen(cmd));
 
     if (wait(CMD_TYPE_RESPONSE, AT_TSCORE) == eOK)
@@ -365,10 +328,10 @@ DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::setTScore(uint8_t tscore)
     return eTimedOut;
 }
 
-DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::setTIOU(uint8_t tious)
+DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::setIOU(uint8_t iou)
 {
     char cmd[64] = {0};
-    snprintf(cmd, sizeof(cmd), CMD_PRE "%s=%d" CMD_SUF, AT_TIOU, tious);
+    snprintf(cmd, sizeof(cmd), CMD_PRE "%s=%d" CMD_SUF, AT_TIOU, iou);
     write(cmd, strlen(cmd));
 
     if (wait(CMD_TYPE_RESPONSE, AT_TIOU) == eOK)
@@ -378,7 +341,7 @@ DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::setTIOU(uint8_t tious)
     return eTimedOut;
 }
 
-DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::setModel(eModel_t model)
+DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::setModelType(eModel_t model)
 {
     char cmd[64] = {0};
     snprintf(cmd, sizeof(cmd), CMD_PRE "%s=%d" CMD_SUF, AT_MODEL, (int)model);
@@ -391,7 +354,7 @@ DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::setModel(eModel_t model)
     return eTimedOut;
 }
 
-DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::setSimilarity(uint8_t Similarity)
+DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::setLearnSimilarity(uint8_t Similarity)
 {
     char cmd[64] = {0};
     snprintf(cmd, sizeof(cmd), CMD_PRE "%s=%d" CMD_SUF, AT_TSIMILARITY, (int)Similarity);
@@ -404,21 +367,21 @@ DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::setSimilarity(uint8_t Similarit
     return eTimedOut;
 }
 
-DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getTScore(uint8_t *score)
+DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getConfidence(uint8_t *confidence)
 {
     char cmd[64] = {0};
     snprintf(cmd, sizeof(cmd), CMD_PRE "%s?" CMD_SUF, AT_TSCORE);
     write(cmd, strlen(cmd));
-    *score = 0;
+    *confidence = 0;
     if (wait(CMD_TYPE_RESPONSE, AT_TSCORE) == eOK)
     {
-        *score = _ret_data;
+        *confidence = _ret_data;
         return eOK;
     }
     return eTimedOut;
 }
 
-DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getTIOU(uint8_t *iou)
+DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getIOU(uint8_t *iou)
 {
     char cmd[64] = {0};
     snprintf(cmd, sizeof(cmd), CMD_PRE "%s?" CMD_SUF, AT_TIOU);
@@ -432,26 +395,7 @@ DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getTIOU(uint8_t *iou)
     return eTimedOut;
 }
 
-DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getModel(char* model)
-{
-    char cmd[64] = {0};
-    snprintf(cmd, sizeof(cmd), CMD_PRE "%s?" CMD_SUF, AT_MODEL);
-    write(cmd, strlen(cmd));
-
-    if (wait(CMD_TYPE_RESPONSE, AT_MODEL) == eOK)
-    {
-        if(_ret_data == eHand) {
-            strcpy(model, "HAND");
-        }
-        else if(_ret_data == ePose) {
-            strcpy(model, "POSE");
-        }
-        return eOK;
-    }
-    return eTimedOut;
-}
-
-DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getSimilarity(uint8_t *Similarity)
+DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getLearnSimilarity(uint8_t *Similarity)
 {
     char cmd[64] = {0};
     snprintf(cmd, sizeof(cmd), CMD_PRE "%s?" CMD_SUF, AT_TSIMILARITY);
@@ -465,7 +409,7 @@ DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getSimilarity(uint8_t *Similari
     return eTimedOut;
 }
 
-std::vector<std::string> DFRobot_HumanPose::getLearnList(eModel_t model)
+LearnList DFRobot_HumanPose::getLearnList(eModel_t model)
 {   
     char cmd[64] = {0};
     _learn_list.clear();
@@ -489,6 +433,35 @@ std::vector<std::string> DFRobot_HumanPose::getLearnList(eModel_t model)
         }
     }
     return _learn_list;
+}
+
+bool DFRobot_HumanPose::availableResult()
+{
+  bool ret = false;
+  for (uint8_t i = 0; i < MAX_RESULT_NUM; ++i) {
+    if (_result[i] != NULL) {
+        if (!_result[i]->used) {
+            ret = true;
+            break;
+        }
+    }
+  }
+  return ret;
+}
+
+Result *DFRobot_HumanPose::popResult()
+{
+  for (uint8_t i = 0; i < MAX_RESULT_NUM; ++i) {
+    if (_result[i] != NULL) {
+        if (_result[i]->used){
+            continue;
+        }
+
+        _result[i]->used = true;
+        return _result[i];
+    }
+  }
+  return NULL;
 }
 
 DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getName(char *name)

@@ -1,7 +1,7 @@
 /**
- * @file studyPostureLamp.ino
- * @brief Study posture lamp example
- * @details This example demonstrates how to detect learned target poses and turn on LED indicator when learned target is detected
+ * @file poseDetect_Blink.ino
+ * @brief Pose detect blink example
+ * @details This example demonstrates how to detect pose and turn on LED indicator when pose is detected
  * @copyright Copyright (c) 2025 DFRobot Co.Ltd (http://www.dfrobot.com)
  * @license The MIT License (MIT)
  * @author DFRobot
@@ -12,8 +12,8 @@
 #include <DFRobot_HumanPose.h>
 
 /* >> Step 1: Please choose your communication method below */
-#define HUMANPOSE_COMM_UART  // Use UART communication
-// #define HUMANPOSE_COMM_I2C  // Use I2C communication
+// #define HUMANPOSE_COMM_UART  // Use UART communication
+#define HUMANPOSE_COMM_I2C  // Use I2C communication
 
 
 
@@ -26,15 +26,15 @@
  *     RX        |        MCU TX          |     Serial1 TX1      |     5     |   5/D6  |  26/D3|     X      |  tx1  |
  *     TX        |        MCU RX          |     Serial1 RX1      |     4     |   4/D7  |  25/D2|     X      |  rx1  |
  * ----------------------------------------------------------------------------------------------------------------------*/
-// Initialize UART communication: Serial1, baud rate 921600, RX pin 25, TX pin 26 (ESP32)
+// Initialize UART communication: Serial1, baud rate 9600, RX pin 25, TX pin 26 (ESP32)
 #if defined(ARDUINO_AVR_UNO) || defined(ESP8266)
 #include <SoftwareSerial.h>
 SoftwareSerial mySerial(4, 5);
-DFRobot_HumanPose_UART humanPose(&mySerial, 921600);
+DFRobot_HumanPose_UART humanPose(&mySerial, 9600);
 #elif defined(ESP32)
-DFRobot_HumanPose_UART humanPose(&Serial1, 921600, /*RX pin*/25, /*TX pin*/26);
+DFRobot_HumanPose_UART humanPose(&Serial1, 9600, /*RX pin*/25, /*TX pin*/26);
 #else
-DFRobot_HumanPose_UART humanPose(&Serial1, 921600);
+DFRobot_HumanPose_UART humanPose(&Serial1, 9600);
 #endif
 #elif defined(HUMANPOSE_COMM_I2C)
 /**
@@ -64,27 +64,23 @@ void setup() {
     Serial.println("Sensor init success!");
     
     // Set detection model: eHand (hand detection) or ePose (human pose detection)
-    humanPose.setModel(DFRobot_HumanPose::eHand);
+    humanPose.setModelType(DFRobot_HumanPose::ePose);
     
     // Configure detection threshold parameters
-    humanPose.setTIOU(45);        // Set IOU threshold (0-100), used for non-maximum suppression, default is typically 45
-    humanPose.setTScore(70);      // Set detection confidence threshold (0-100), default is typically 60
-    humanPose.setSimilarity(60);  // Set similarity threshold (0-100), used for matching learned targets, default is typically 60
-    
-    char model[16]="";
-    humanPose.getModel(model);
-    Serial.print("model: ");
-    Serial.println(model);
+    humanPose.setIOU(45);        // Set IOU threshold (0-100), used for non-maximum suppression, default is typically 45
+    humanPose.setConfidence(70);      // Set detection confidence threshold (0-100), default is typically 60
+    humanPose.setLearnSimilarity(60);  // Set similarity threshold (0-100), used for matching learned targets, default is typically 60
+
     uint8_t iou, score, similarity;
-    humanPose.getTIOU(&iou);
-    humanPose.getTScore(&score);
-    humanPose.getSimilarity(&similarity);
+    humanPose.getIOU(&iou);
+    humanPose.getConfidence(&score);
+    humanPose.getLearnSimilarity(&similarity);
     char buf[64];
     sprintf(buf, "iou: %d, score: %d, similarity: %d", iou, score, similarity);
     Serial.println(buf);
 
     // Get learn list for specified model
-    std::vector<std::string> learnList = humanPose.getLearnList(DFRobot_HumanPose::eHand);
+    LearnList learnList = humanPose.getLearnList(DFRobot_HumanPose::ePose);
     
     // Print all learned target names
     Serial.println("Learn list:");
@@ -111,11 +107,15 @@ void loop() {
     // Get detection results
     if (humanPose.getResult() == DFRobot_HumanPose::eOK) {
         // Iterate through all detected targets
-        for (size_t i = 0; i < humanPose.keypoints().size(); i++) {
-            // If target identifier is not 0, it means a learned target is detected
-            if (humanPose.keypoints()[i].box.target != 0) {
-                led_val = HIGH;  // Turn on LED
-                break;  // Exit loop after detecting learned target
+        while (humanPose.availableResult()) {
+            PoseResult *result = static_cast<PoseResult *>(
+                humanPose.popResult());
+            if (result->id != 0) {
+                Serial.print("ID: ");
+                Serial.println(result->id);
+                Serial.print("Name: ");
+                Serial.println(result->name);
+                led_val = HIGH;
             }
         }
     }

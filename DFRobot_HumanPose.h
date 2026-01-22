@@ -12,8 +12,8 @@
  * 
  * @note For more information about the sensor, please visit: https://github.com/DFRobot/DFRobot_RTU
  */
-#ifndef DFRobot_HumanPose_H
-#define DFRobot_HumanPose_H
+#ifndef DFROBOT_HUMANPOSE_H
+#define DFROBOT_HUMANPOSE_H
 
 #include <stdio.h>
 #include <stdint.h>
@@ -24,6 +24,9 @@
 #include <Wire.h>
 #include <ArduinoJson.h>
 
+
+#include "Result.h"
+
 #define ARDUINOJSON_ENABLE_STD_STRING 1
 
 // #define ENABLE_DBG
@@ -32,6 +35,9 @@
 #else
 #define LDBG(...)
 #endif
+
+using LearnList = std::vector<std::string>;
+
 
 class DFRobot_HumanPose {
 protected:
@@ -85,6 +91,8 @@ protected:
 #define CMD_TYPE_EVENT 1
 #define CMD_TYPE_LOG 2
 
+#define MAX_RESULT_NUM 4
+
 static constexpr const char AT_NAME[] = "NAME";
 static constexpr const char AT_INVOKE[] = "INVOKE";
 static constexpr const char AT_TSCORE[] = "TSCORE";
@@ -120,66 +128,16 @@ typedef enum {
  * @enum eModel_t
  * @brief Detection model type
  */
-typedef enum {
+ typedef enum {
     eHand = 1,  ///< Hand detection model
     ePose = 3,  ///< Human pose detection model
 } eModel_t;
 
-/**
- * @struct sBox_t
- * @brief Bounding box structure for detected objects
- */
-typedef struct
-{
-    uint16_t x;      ///< X coordinate of the top-left corner
-    uint16_t y;      ///< Y coordinate of the top-left corner
-    uint16_t w;      ///< Width of the bounding box
-    uint16_t h;      ///< Height of the bounding box
-    uint8_t score;   ///< Detection confidence score (0-100)
-    uint8_t target;  ///< Target identifier (0 means unknown, non-zero means learned target)
-} sBox_t;
-
-/**
- * @struct sClass_t
- * @brief Classification result structure
- */
-typedef struct
-{
-    uint8_t target;  ///< Target identifier
-    uint8_t score;   ///< Classification confidence score (0-100)
-} sClass_t;
-
-/**
- * @struct sPoint_t
- * @brief Keypoint structure (e.g., joint positions)
- */
-typedef struct
-{
-    uint16_t x;      ///< X coordinate of the keypoint
-    uint16_t y;      ///< Y coordinate of the keypoint
-    uint16_t z;      ///< Z coordinate of the keypoint (currently unused, set to 0)
-    uint8_t score;   ///< Keypoint detection confidence score (0-100)
-    uint8_t target;  ///< Target identifier
-} sPoint_t;
-
-/**
- * @struct sKeypoints_t
- * @brief Keypoints structure containing bounding box and keypoint array
- */
-typedef struct
-{
-    sBox_t box;                    ///< Bounding box of the detected object
-    std::vector<sPoint_t> points;  ///< Vector of keypoints (e.g., joint positions)
-} sKeypoints_t;
-
-
 protected:
+    Result *_result[MAX_RESULT_NUM];
     int _wait_delay;
     uint32_t rx_end;
-    std::vector<sBox_t> _boxes;
-    std::vector<sClass_t> _classes;
-    std::vector<sPoint_t> _points;
-    std::vector<sKeypoints_t> _keypoints;
+
     #if ARDUINOJSON_VERSION_MAJOR == 7
         JsonDocument response; // for json response
     #else
@@ -193,7 +151,7 @@ protected:
 
     uint8_t _ret_data;
     char _name[24]="";
-    std::vector<std::string> _learn_list;
+    LearnList _learn_list;
     // Command processing helper functions
     /**
      * @fn wait
@@ -271,38 +229,38 @@ public:
      * @fn getResult
      * @brief Get detection results from the sensor
      * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
-     * @note After calling this function, the detection results will be stored in the keypoints vector.
-     *       You can access the results using the keypoints() method.
+     * @note After calling this function, the detection results will be stored in the internal result array.
+     *       You can access the results using availableResult() and popResult() methods.
      */
     eCmdCode_t getResult();
 
     /**
-     * @fn setTScore
-     * @brief Set the detection threshold score
+     * @fn setConfidence
+     * @brief Set the detection confidence threshold
      * 
      * Sets the minimum confidence score required for a detection to be considered valid.
      * Higher values result in fewer but more reliable detections. Lower values allow more
      * detections but may include false positives.
      *
-     * @param tscore Threshold score value (0-100). Default is typically 60.
+     * @param confidence Confidence threshold value (0-100). Default is typically 60.
      * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
      */
-    eCmdCode_t setTScore(uint8_t tscore);
+    eCmdCode_t setConfidence(uint8_t confidence);
     
     /**
-     * @fn setTIOU
+     * @fn setIOU
      * @brief Set the Intersection over Union (IOU) threshold
      * 
      * Sets the IOU threshold used for non-maximum suppression during object detection.
      * This parameter helps filter out overlapping detections.
      *
-     * @param tious IOU threshold value (0-100). Default is typically 45.
+     * @param iou IOU threshold value (0-100). Default is typically 45.
      * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
      */
-    eCmdCode_t setTIOU(uint8_t tious);
+    eCmdCode_t setIOU(uint8_t iou);
     
     /**
-     * @fn setModel
+     * @fn setModelType
      * @brief Set the detection model
      * 
      * Selects which detection model to use. The sensor supports hand detection and human pose detection.
@@ -312,10 +270,10 @@ public:
      *              - `ePose` - Human pose detection model
      * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
      */
-    eCmdCode_t setModel(eModel_t model);
+    eCmdCode_t setModelType(eModel_t model);
     
     /**
-     * @fn setSimilarity
+     * @fn setLearnSimilarity
      * @brief Set the similarity threshold for learned targets
      * 
      * Sets the similarity threshold used when matching detected objects against learned targets.
@@ -324,21 +282,21 @@ public:
      * @param Similarity Similarity threshold value (0-100). Default is typically 60.
      * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
      */
-    eCmdCode_t setSimilarity(uint8_t Similarity);
+    eCmdCode_t setLearnSimilarity(uint8_t Similarity);
     
     /**
-     * @fn getTScore
-     * @brief Get the current detection threshold score
+     * @fn getConfidence
+     * @brief Get the current detection confidence threshold
      * 
-     * Retrieves the currently configured detection threshold score.
+     * Retrieves the currently configured detection confidence threshold.
      *
-     * @param score Pointer to store the threshold score value (0-100)
+     * @param confidence Pointer to store the confidence threshold value (0-100)
      * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
      */
-    eCmdCode_t getTScore(uint8_t* score);
+    eCmdCode_t getConfidence(uint8_t* confidence);
     
     /**
-     * @fn getTIOU
+     * @fn getIOU
      * @brief Get the current IOU threshold
      * 
      * Retrieves the currently configured IOU threshold value.
@@ -346,22 +304,10 @@ public:
      * @param iou Pointer to store the IOU threshold value (0-100)
      * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
      */
-    eCmdCode_t getTIOU(uint8_t* iou);
+    eCmdCode_t getIOU(uint8_t* iou);
     
     /**
-     * @fn getModel
-     * @brief Get the current detection model
-     * 
-     * Retrieves the currently active detection model type.
-     *
-     * @param model Pointer to a character buffer to store the model name ("HAND" or "POSE")
-     * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
-     * @note The buffer should be large enough to store the model name string.
-     */
-    eCmdCode_t getModel(char* model);
-    
-    /**
-     * @fn getSimilarity
+     * @fn getLearnSimilarity
      * @brief Get the current similarity threshold
      * 
      * Retrieves the currently configured similarity threshold value.
@@ -369,7 +315,7 @@ public:
      * @param Similarity Pointer to store the similarity threshold value (0-100)
      * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
      */
-    eCmdCode_t getSimilarity(uint8_t* Similarity);
+    eCmdCode_t getLearnSimilarity(uint8_t* Similarity);
 
     /**
      * @fn getLearnList
@@ -383,39 +329,12 @@ public:
      *              - `ePose` - Get list of learned poses
      * @return Vector of strings containing the names of learned targets. Returns empty vector on error.
      */
-    std::vector<std::string> getLearnList(eModel_t model);
+    LearnList getLearnList(eModel_t model);
 
 
-    
+    bool availableResult();
 
-    /**
-     * @fn boxes
-     * @brief Get reference to the bounding boxes vector
-     * @return Reference to vector containing detected bounding boxes
-     */
-    std::vector<sBox_t> &boxes() { return _boxes; }
-    
-    /**
-     * @fn classes
-     * @brief Get reference to the classification results vector
-     * @return Reference to vector containing classification results
-     */
-    std::vector<sClass_t> &classes() { return _classes; }
-    
-    /**
-     * @fn points
-     * @brief Get reference to the keypoints vector
-     * @return Reference to vector containing detected keypoints
-     */
-    std::vector<sPoint_t> &points() { return _points; }
-    
-    /**
-     * @fn keypoints
-     * @brief Get reference to the keypoints structure vector
-     * @return Reference to vector containing keypoints structures (each includes a bounding box and keypoint array)
-     * @note This is the primary method to access detection results after calling getResult()
-     */
-    std::vector<sKeypoints_t> &keypoints() { return _keypoints; }
+    Result *popResult();
 };
 
 /**

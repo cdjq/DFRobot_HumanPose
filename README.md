@@ -2,7 +2,7 @@
 
 * [Chinese Version](./README_CN.md)
 
-HumanPose is a sensor that can detect human poses and gestures.
+HumanPose is a sensor library that can detect human poses and gestures.
 
 ## Table of Contents
 
@@ -15,7 +15,7 @@ HumanPose is a sensor that can detect human poses and gestures.
 
 ## Description
 
-Arduino library for controlling HumanPose sensor. This is a human pose detection sensor that can be controlled through I2C/UART ports. EPII_CM55M_APP_S has functions such as human pose detection, hand detection, etc.
+Arduino library for controlling HumanPose sensor. This is a human pose detection sensor that can be controlled through I2C/UART ports. such as human pose detection, hand detection, etc. It supports real-time detection results including keypoint coordinates, bounding box information, and more.
 
 ## Installation
 
@@ -23,6 +23,8 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
 2. To use this library, you also need to download the dependency: https://github.com/bblanchon/ArduinoJson
 
 ## Methods
+
+### Base Class: DFRobot_HumanPose
 
 ```c++
     /**
@@ -36,38 +38,38 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
      * @fn getResult
      * @brief Get detection results from the sensor
      * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
-     * @note After calling this function, the detection results will be stored in the keypoints vector.
-     *       You can access the results using the keypoints() method.
+     * @note After calling this function, the detection results will be stored in the internal result array.
+     *       You can access the results using availableResult() and popResult() methods.
      */
     eCmdCode_t getResult();
 
     /**
-     * @fn setTScore
-     * @brief Set the detection threshold score
+     * @fn setConfidence
+     * @brief Set the detection confidence threshold
      * 
      * Sets the minimum confidence score required for a detection to be considered valid.
      * Higher values result in fewer but more reliable detections. Lower values allow more
      * detections but may include false positives.
      *
-     * @param tscore Threshold score value (0-100). Default is typically 60.
+     * @param confidence Threshold score value (0-100). Default is typically 60.
      * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
      */
-    eCmdCode_t setTScore(uint8_t tscore);
+    eCmdCode_t setConfidence(uint8_t confidence);
 
     /**
-     * @fn setTIOU
+     * @fn setIOU
      * @brief Set the Intersection over Union (IOU) threshold
      * 
      * Sets the IOU threshold used for non-maximum suppression during object detection.
      * This parameter helps filter out overlapping detections.
      *
-     * @param tious IOU threshold value (0-100). Default is typically 45.
+     * @param iou IOU threshold value (0-100). Default is typically 45.
      * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
      */
-    eCmdCode_t setTIOU(uint8_t tious);
+    eCmdCode_t setIOU(uint8_t iou);
 
     /**
-     * @fn setModel
+     * @fn setModelType
      * @brief Set the detection model
      * 
      * Selects which detection model to use. The sensor supports hand detection and human pose detection.
@@ -77,10 +79,10 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
      *              - `ePose` - Human pose detection model
      * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
      */
-    eCmdCode_t setModel(eModel_t model);
+    eCmdCode_t setModelType(eModel_t model);
 
     /**
-     * @fn setSimilarity
+     * @fn setLearnSimilarity
      * @brief Set the similarity threshold for learned targets
      * 
      * Sets the similarity threshold used when matching detected objects against learned targets.
@@ -89,21 +91,21 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
      * @param Similarity Similarity threshold value (0-100). Default is typically 60.
      * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
      */
-    eCmdCode_t setSimilarity(uint8_t Similarity);
+    eCmdCode_t setLearnSimilarity(uint8_t Similarity);
 
     /**
-     * @fn getTScore
-     * @brief Get the current detection threshold score
+     * @fn getConfidence
+     * @brief Get the current detection confidence threshold
      * 
-     * Retrieves the currently configured detection threshold score.
+     * Retrieves the currently configured detection confidence threshold.
      *
-     * @param score Pointer to store the threshold score value (0-100)
+     * @param confidence Pointer to store the confidence threshold value (0-100)
      * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
      */
-    eCmdCode_t getTScore(uint8_t* score);
+    eCmdCode_t getConfidence(uint8_t* confidence);
 
     /**
-     * @fn getTIOU
+     * @fn getIOU
      * @brief Get the current IOU threshold
      * 
      * Retrieves the currently configured IOU threshold value.
@@ -111,22 +113,10 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
      * @param iou Pointer to store the IOU threshold value (0-100)
      * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
      */
-    eCmdCode_t getTIOU(uint8_t* iou);
+    eCmdCode_t getIOU(uint8_t* iou);
 
     /**
-     * @fn getModel
-     * @brief Get the current detection model
-     * 
-     * Retrieves the currently active detection model type.
-     *
-     * @param model Pointer to a character buffer to store the model name ("HAND" or "POSE")
-     * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
-     * @note The buffer should be large enough to store the model name string.
-     */
-    eCmdCode_t getModel(char* model);
-
-    /**
-     * @fn getSimilarity
+     * @fn getLearnSimilarity
      * @brief Get the current similarity threshold
      * 
      * Retrieves the currently configured similarity threshold value.
@@ -134,7 +124,7 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
      * @param Similarity Pointer to store the similarity threshold value (0-100)
      * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
      */
-    eCmdCode_t getSimilarity(uint8_t* Similarity);
+    eCmdCode_t getLearnSimilarity(uint8_t* Similarity);
 
     /**
      * @fn getLearnList
@@ -151,34 +141,25 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
     std::vector<std::string> getLearnList(eModel_t model);
 
     /**
-     * @fn boxes
-     * @brief Get reference to the bounding boxes vector
-     * @return Reference to vector containing detected bounding boxes
+     * @fn availableResult
+     * @brief Check if detection results are available
+     * @return True if detection results are available, otherwise false
      */
-    std::vector<sBox_t>& boxes();
+    bool availableResult();
 
     /**
-     * @fn classes
-     * @brief Get reference to the classification results vector
-     * @return Reference to vector containing classification results
+     * @fn popResult
+     * @brief Get and pop the next detection result
+     * @return Pointer to Result object. Returns NULL if no results are available.
+     * @note The Result object may be of type PoseResult or HandResult, depending on the currently set model type.
+     *       After use, the result will be marked as used.
      */
-    std::vector<sClass_t>& classes();
+    Result *popResult();
+```
 
-    /**
-     * @fn points
-     * @brief Get reference to the keypoints vector
-     * @return Reference to vector containing detected keypoints
-     */
-    std::vector<sPoint_t>& points();
+### I2C Communication Class: DFRobot_HumanPose_I2C
 
-    /**
-     * @fn keypoints
-     * @brief Get reference to the keypoints structure vector
-     * @return Reference to vector containing keypoints structures (each includes a bounding box and keypoint array)
-     * @note This is the primary method to access detection results after calling getResult()
-     */
-    std::vector<sKeypoints_t>& keypoints();
-
+```c++
     /**
      * @fn DFRobot_HumanPose_I2C
      * @brief Constructor of DFRobot_HumanPose_I2C class
@@ -188,12 +169,16 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
     DFRobot_HumanPose_I2C(TwoWire *wire, uint8_t address);
 
     /**
-     * @fn DFRobot_HumanPose_I2C::begin
+     * @fn begin
      * @brief Initialize the I2C communication and sensor
      * @return True if initialization is successful, otherwise false
      */
     bool begin(void);
+```
 
+### UART Communication Class: DFRobot_HumanPose_UART
+
+```c++
     /**
      * @fn DFRobot_HumanPose_UART
      * @brief Constructor of DFRobot_HumanPose_UART class
@@ -213,7 +198,7 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
     DFRobot_HumanPose_UART(SoftwareSerial *sSerial, uint32_t baud);
 
     /**
-     * @fn DFRobot_HumanPose_UART::begin
+     * @fn begin
      * @brief Initialize the UART communication and sensor
      * @return True if initialization is successful, otherwise false
      */
@@ -242,18 +227,74 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
     bool setBaud(eBaudConfig_t baud);
 ```
 
+### Result Classes: Result, PoseResult, HandResult
+
+```c++
+    // Result base class contains the following public members:
+    uint8_t id;           // Detected target ID
+    uint16_t xLeft;        // Bounding box top-left X coordinate
+    uint16_t yTop;         // Bounding box top-left Y coordinate
+    uint16_t width;        // Bounding box width
+    uint16_t height;       // Bounding box height
+    uint8_t confidence;    // Confidence (0-100)
+    String name;           // Detected target name
+    bool used;             // Used flag
+
+    // PoseResult class (human pose detection result) additionally contains the following keypoints:
+    PointU16 nose;         // Nose
+    PointU16 leye;         // Left eye
+    PointU16 reye;         // Right eye
+    PointU16 lear;         // Left ear
+    PointU16 rear;         // Right ear
+    PointU16 lshoulder;    // Left shoulder
+    PointU16 rshoulder;    // Right shoulder
+    PointU16 lelbow;       // Left elbow
+    PointU16 relbow;       // Right elbow
+    PointU16 lwrist;       // Left wrist
+    PointU16 rwrist;       // Right wrist
+    PointU16 lhip;         // Left hip
+    PointU16 rhip;         // Right hip
+    PointU16 lknee;        // Left knee
+    PointU16 rknee;        // Right knee
+    PointU16 lankle;       // Left ankle
+    PointU16 rankle;        // Right ankle
+
+    // HandResult class (hand detection result) additionally contains the following keypoints:
+    PointU16 wrist;        // Wrist
+    PointU16 thumbCmc;     // Thumb CMC
+    PointU16 thumbMcp;     // Thumb MCP
+    PointU16 thumbIp;      // Thumb IP
+    PointU16 thumbTip;     // Thumb tip
+    PointU16 indexFingerMcp;   // Index finger MCP
+    PointU16 indexFingerPip;   // Index finger PIP
+    PointU16 indexFingerDip;   // Index finger DIP
+    PointU16 indexFingerTip;   // Index finger tip
+    PointU16 middleFingerMcp; // Middle finger MCP
+    PointU16 middleFingerPip; // Middle finger PIP
+    PointU16 middleFingerDip; // Middle finger DIP
+    PointU16 middleFingerTip; // Middle finger tip
+    PointU16 ringFingerMcp;   // Ring finger MCP
+    PointU16 ringFingerPip;   // Ring finger PIP
+    PointU16 ringFingerDip;   // Ring finger DIP
+    PointU16 ringFingerTip;   // Ring finger tip
+    PointU16 pinkyFingerMcp; // Pinky finger MCP
+    PointU16 pinkyFingerPip; // Pinky finger PIP
+    PointU16 pinkyFingerDip; // Pinky finger DIP
+    PointU16 pinkyFingerTip; // Pinky finger tip
+```
+
 ## Compatibility
 
 | MCU                | Work Well | Work Wrong | Untested | Remarks |
-| ------------------ | :----------: | :----------: | :---------: | ----- |
-| Arduino Uno        |      √       |              |             | Requires SoftwareSerial |
-| Arduino Leonardo   |      √       |              |             |         |
-| Arduino MEGA2560   |      √       |              |             |         |
-| FireBeetle-ESP32-E |      √       |              |             |         |
-| ESP8266            |      √       |              |             | Requires SoftwareSerial |
-| FireBeetle-M0      |      √       |              |             |         |
-| Micro:bit          |      √       |              |             |         |
-| Raspberry Pi       |      √       |              |             |         |
+| ------------------ | :--------: | :--------: | :------: | ------- |
+| Arduino Uno        |     √      |            |          | Requires SoftwareSerial |
+| Arduino Leonardo   |     √      |            |          |                         |
+| Arduino MEGA2560   |     √      |            |          |                         |
+| FireBeetle-ESP32-E |     √      |            |          |                         |
+| ESP8266            |     √      |            |          | Requires SoftwareSerial |
+| FireBeetle-M0      |     √      |            |          |                         |
+| Micro:bit          |     √      |            |          |                         |
+| Raspberry Pi       |     √      |            |          |                         |
 
 ## History
 

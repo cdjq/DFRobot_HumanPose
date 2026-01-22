@@ -1,5 +1,5 @@
 /**
- * @file getResult.ino
+ * @file getPoseResult.ino
  * @brief Example of getting human pose detection data
  * @details This example demonstrates how to get detection results from the human pose detection sensor and print bounding box and keypoint information
  * @copyright Copyright (c) 2025 DFRobot Co.Ltd (http://www.dfrobot.com)
@@ -26,15 +26,15 @@
  *     RX        |        MCU TX          |     Serial1 TX1      |     5     |   5/D6  |  26/D3|     X      |  tx1  |
  *     TX        |        MCU RX          |     Serial1 RX1      |     4     |   4/D7  |  25/D2|     X      |  rx1  |
  * ----------------------------------------------------------------------------------------------------------------------*/
-// Initialize UART communication: Serial1, baud rate 921600, RX pin 25, TX pin 26 (ESP32)
+// Initialize UART communication: Serial1, baud rate 9600, RX pin 25, TX pin 26 (ESP32)
 #if defined(ARDUINO_AVR_UNO) || defined(ESP8266)
 #include <SoftwareSerial.h>
 SoftwareSerial mySerial(4, 5);
-DFRobot_HumanPose_UART humanPose(&mySerial, 921600);
+DFRobot_HumanPose_UART humanPose(&mySerial, 9600);
 #elif defined(ESP32)
-DFRobot_HumanPose_UART humanPose(&Serial1, 921600, /*RX pin*/25, /*TX pin*/26);
+DFRobot_HumanPose_UART humanPose(&Serial1, 9600, /*RX pin*/25, /*TX pin*/26);
 #else
-DFRobot_HumanPose_UART humanPose(&Serial1, 921600);
+DFRobot_HumanPose_UART humanPose(&Serial1, 9600);
 #endif
 #elif defined(HUMANPOSE_COMM_I2C)
 /**
@@ -64,7 +64,7 @@ void setup() {
     Serial.println("Sensor init success!");
     
     // Set detection model: eHand (hand detection) or ePose (human pose detection)
-    humanPose.setModel(DFRobot_HumanPose::eHand);
+    humanPose.setModelType(DFRobot_HumanPose::ePose);
 }
 
 /**
@@ -74,42 +74,34 @@ void setup() {
 void loop() {
     // Get detection results
     if (humanPose.getResult() == DFRobot_HumanPose::eOK) {
-        Serial.println("getResult success");
-        
-        // Iterate through all detected targets (each target contains a bounding box and multiple keypoints)
-        for (size_t i = 0; i < humanPose.keypoints().size(); i++) {
-            // Print bounding box information
-            Serial.print("Box ");
-            Serial.print(i);
-            Serial.print(" -: x=");
-            Serial.print(humanPose.keypoints()[i].box.x);      // Bounding box top-left X coordinate
-            Serial.print(", y=");
-            Serial.print(humanPose.keypoints()[i].box.y);      // Bounding box top-left Y coordinate
-            Serial.print(", w=");
-            Serial.print(humanPose.keypoints()[i].box.w);      // Bounding box width
-            Serial.print(", h=");
-            Serial.print(humanPose.keypoints()[i].box.h);      // Bounding box height
-            Serial.print(", score=");
-            Serial.print(humanPose.keypoints()[i].box.score);  // Detection confidence (0-100)
-            Serial.print(", target=");
-            Serial.print(humanPose.keypoints()[i].box.target); // Target identifier (0 means unknown, non-zero means learned target)
-            Serial.print(" | Keypoints: ");
-            Serial.print(humanPose.keypoints()[i].points.size());
-            Serial.println(" points");
-            
-            // Iterate and print all keypoints for this target
-            for (size_t j = 0; j < humanPose.keypoints()[i].points.size(); j++) {
-                Serial.print("  Point ");
-                Serial.print(j);
-                Serial.print(": x=");
-                Serial.print(humanPose.keypoints()[i].points[j].x);      // Keypoint X coordinate
-                Serial.print(", y=");
-                Serial.print(humanPose.keypoints()[i].points[j].y);      // Keypoint Y coordinate
-                Serial.print(", score=");
-                Serial.print(humanPose.keypoints()[i].points[j].score);  // Keypoint confidence
-                Serial.print(", target=");
-                Serial.println(humanPose.keypoints()[i].points[j].target); // Keypoint target identifier
-            }
+        Serial.println("getPoseResult success");
+        while (humanPose.availableResult()) {
+            PoseResult *result = static_cast<PoseResult *>(
+                humanPose.popResult());
+            Serial.println("name: " + result->name);
+            Serial.println("confidence: " + String(result->confidence));
+            Serial.println("xLeft: " + String(result->xLeft));
+            Serial.println("yTop: " + String(result->yTop));
+            Serial.println("width: " + String(result->width));
+            Serial.println("height: " + String(result->height));
+            Serial.println("nose: " + String(result->nose.x) + ", " + String(result->nose.y));
+            Serial.println("leye: " + String(result->leye.x) + ", " + String(result->leye.y));
+            Serial.println("reye: " + String(result->reye.x) + ", " + String(result->reye.y));
+            Serial.println("lear: " + String(result->lear.x) + ", " + String(result->lear.y));
+            Serial.println("rear: " + String(result->rear.x) + ", " + String(result->rear.y));
+            Serial.println("lshoulder: " + String(result->lshoulder.x) + ", " + String(result->lshoulder.y));
+            Serial.println("rshoulder: " + String(result->rshoulder.x) + ", " + String(result->rshoulder.y));
+            Serial.println("lelbow: " + String(result->lelbow.x) + ", " + String(result->lelbow.y));
+            Serial.println("relbow: " + String(result->relbow.x) + ", " + String(result->relbow.y));
+            Serial.println("lwrist: " + String(result->lwrist.x) + ", " + String(result->lwrist.y));
+            Serial.println("rwrist: " + String(result->rwrist.x) + ", " + String(result->rwrist.y));
+            Serial.println("lhip: " + String(result->lhip.x) + ", " + String(result->lhip.y));
+            Serial.println("rhip: " + String(result->rhip.x) + ", " + String(result->rhip.y));
+            Serial.println("lknee: " + String(result->lknee.x) + ", " + String(result->lknee.y));
+            Serial.println("rknee: " + String(result->rknee.x) + ", " + String(result->rknee.y));
+            Serial.println("lankle: " + String(result->lankle.x) + ", " + String(result->lankle.y));
+            Serial.println("rankle: " + String(result->rankle.x) + ", " + String(result->rankle.y));
+            Serial.println("--------------------------------");
         }
     } else {
         Serial.println("getResult fail");

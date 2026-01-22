@@ -2,7 +2,7 @@
 
 * [English Version](./README.md)
 
-HumanPose是一款可以检测人体姿态和手势的传感器
+HumanPose是一款可以检测人体姿态和手势的传感器库。
 
 ## 目录
 
@@ -15,7 +15,7 @@ HumanPose是一款可以检测人体姿态和手势的传感器
 
 ## 简介
 
-提供用于控制HumanPose传感器的Arduino库。这是一个可以通过 I2C/UART 端口控制的人体姿态检测传感器。EPII_CM55M_APP_S 具有人体姿态检测、手势检测等功能。
+提供用于控制HumanPose传感器的Arduino库。这是一个可以通过 I2C/UART 端口控制的人体姿态检测传感器。具有人体姿态检测、手势检测等功能，支持实时获取检测结果，包括关键点坐标、边界框信息等。
 
 ## 安装
 
@@ -23,6 +23,8 @@ HumanPose是一款可以检测人体姿态和手势的传感器
 2. 使用该库还需下载依赖：https://github.com/bblanchon/ArduinoJson
 
 ## 方法
+
+### 基础类：DFRobot_HumanPose
 
 ```c++
     /**
@@ -36,38 +38,38 @@ HumanPose是一款可以检测人体姿态和手势的传感器
      * @fn getResult
      * @brief 从传感器获取检测结果
      * @return 类型为 `eCmdCode_t` 的状态代码。成功返回 `eOK`，否则返回错误代码。
-     * @note 调用此函数后，检测结果将存储在 keypoints 向量中。
-     *       您可以使用 keypoints() 方法访问结果。
+     * @note 调用此函数后，检测结果将存储在内部结果数组中。
+     *       您可以使用 availableResult() 和 popResult() 方法访问结果。
      */
     eCmdCode_t getResult();
 
     /**
-     * @fn setTScore
-     * @brief 设置检测阈值分数
+     * @fn setConfidence
+     * @brief 设置检测置信度阈值
      * 
      * 设置检测被视为有效所需的最小置信度分数。
      * 较高的值会导致更少但更可靠的检测。较低的值允许更多
      * 检测但可能包含误报。
      *
-     * @param tscore 阈值分数值（0-100）。默认值通常为 60。
+     * @param confidence 置信度阈值值（0-100）。默认值通常为 60。
      * @return 类型为 `eCmdCode_t` 的状态代码。成功返回 `eOK`，否则返回错误代码。
      */
-    eCmdCode_t setTScore(uint8_t tscore);
+    eCmdCode_t setConfidence(uint8_t confidence);
 
     /**
-     * @fn setTIOU
+     * @fn setIOU
      * @brief 设置交并比（IOU）阈值
      * 
      * 设置用于目标检测过程中非极大值抑制的 IOU 阈值。
      * 此参数有助于过滤重叠的检测。
      *
-     * @param tious IOU 阈值值（0-100）。默认值通常为 45。
+     * @param iou IOU 阈值值（0-100）。默认值通常为 45。
      * @return 类型为 `eCmdCode_t` 的状态代码。成功返回 `eOK`，否则返回错误代码。
      */
-    eCmdCode_t setTIOU(uint8_t tious);
+    eCmdCode_t setIOU(uint8_t iou);
 
     /**
-     * @fn setModel
+     * @fn setModelType
      * @brief 设置检测模型
      * 
      * 选择要使用的检测模型。传感器支持手势检测和人体姿态检测。
@@ -77,10 +79,10 @@ HumanPose是一款可以检测人体姿态和手势的传感器
      *              - `ePose` - 人体姿态检测模型
      * @return 类型为 `eCmdCode_t` 的状态代码。成功返回 `eOK`，否则返回错误代码。
      */
-    eCmdCode_t setModel(eModel_t model);
+    eCmdCode_t setModelType(eModel_t model);
 
     /**
-     * @fn setSimilarity
+     * @fn setLearnSimilarity
      * @brief 设置学习目标的相似度阈值
      * 
      * 设置用于将检测到的目标与学习目标匹配的相似度阈值。
@@ -89,21 +91,21 @@ HumanPose是一款可以检测人体姿态和手势的传感器
      * @param Similarity 相似度阈值值（0-100）。默认值通常为 60。
      * @return 类型为 `eCmdCode_t` 的状态代码。成功返回 `eOK`，否则返回错误代码。
      */
-    eCmdCode_t setSimilarity(uint8_t Similarity);
+    eCmdCode_t setLearnSimilarity(uint8_t Similarity);
 
     /**
-     * @fn getTScore
-     * @brief 获取当前检测阈值分数
+     * @fn getConfidence
+     * @brief 获取当前检测置信度阈值
      * 
-     * 检索当前配置的检测阈值分数。
+     * 检索当前配置的检测置信度阈值。
      *
-     * @param score 用于存储阈值分数值的指针（0-100）
+     * @param confidence 用于存储置信度阈值值的指针（0-100）
      * @return 类型为 `eCmdCode_t` 的状态代码。成功返回 `eOK`，否则返回错误代码。
      */
-    eCmdCode_t getTScore(uint8_t* score);
+    eCmdCode_t getConfidence(uint8_t* confidence);
 
     /**
-     * @fn getTIOU
+     * @fn getIOU
      * @brief 获取当前 IOU 阈值
      * 
      * 检索当前配置的 IOU 阈值值。
@@ -111,22 +113,10 @@ HumanPose是一款可以检测人体姿态和手势的传感器
      * @param iou 用于存储 IOU 阈值值的指针（0-100）
      * @return 类型为 `eCmdCode_t` 的状态代码。成功返回 `eOK`，否则返回错误代码。
      */
-    eCmdCode_t getTIOU(uint8_t* iou);
+    eCmdCode_t getIOU(uint8_t* iou);
 
     /**
-     * @fn getModel
-     * @brief 获取当前检测模型
-     * 
-     * 检索当前活动的检测模型类型。
-     *
-     * @param model 用于存储模型名称（"HAND" 或 "POSE"）的字符缓冲区指针
-     * @return 类型为 `eCmdCode_t` 的状态代码。成功返回 `eOK`，否则返回错误代码。
-     * @note 缓冲区应足够大以存储模型名称字符串。
-     */
-    eCmdCode_t getModel(char* model);
-
-    /**
-     * @fn getSimilarity
+     * @fn getLearnSimilarity
      * @brief 获取当前相似度阈值
      * 
      * 检索当前配置的相似度阈值值。
@@ -134,7 +124,7 @@ HumanPose是一款可以检测人体姿态和手势的传感器
      * @param Similarity 用于存储相似度阈值值的指针（0-100）
      * @return 类型为 `eCmdCode_t` 的状态代码。成功返回 `eOK`，否则返回错误代码。
      */
-    eCmdCode_t getSimilarity(uint8_t* Similarity);
+    eCmdCode_t getLearnSimilarity(uint8_t* Similarity);
 
     /**
      * @fn getLearnList
@@ -151,34 +141,25 @@ HumanPose是一款可以检测人体姿态和手势的传感器
     std::vector<std::string> getLearnList(eModel_t model);
 
     /**
-     * @fn boxes
-     * @brief 获取边界框向量的引用
-     * @return 包含检测到的边界框的向量引用
+     * @fn availableResult
+     * @brief 检查是否有可用的检测结果
+     * @return 如果有可用的检测结果返回 true，否则返回 false
      */
-    std::vector<sBox_t>& boxes();
+    bool availableResult();
 
     /**
-     * @fn classes
-     * @brief 获取分类结果向量的引用
-     * @return 包含分类结果的向量引用
+     * @fn popResult
+     * @brief 获取并弹出下一个检测结果
+     * @return 指向 Result 对象的指针。如果没有可用结果则返回 NULL。
+     * @note Result 对象可能是 PoseResult 或 HandResult 类型，取决于当前设置的模型类型。
+     *       使用完后，结果会被标记为已使用。
      */
-    std::vector<sClass_t>& classes();
+    Result *popResult();
+```
 
-    /**
-     * @fn points
-     * @brief 获取关键点向量的引用
-     * @return 包含检测到的关键点的向量引用
-     */
-    std::vector<sPoint_t>& points();
+### I2C通信类：DFRobot_HumanPose_I2C
 
-    /**
-     * @fn keypoints
-     * @brief 获取关键点结构向量的引用
-     * @return 包含关键点结构的向量引用（每个包括边界框和关键点数组）
-     * @note 这是在调用 getResult() 后访问检测结果的主要方法
-     */
-    std::vector<sKeypoints_t>& keypoints();
-
+```c++
     /**
      * @fn DFRobot_HumanPose_I2C
      * @brief DFRobot_HumanPose_I2C 类的构造函数
@@ -188,12 +169,16 @@ HumanPose是一款可以检测人体姿态和手势的传感器
     DFRobot_HumanPose_I2C(TwoWire *wire, uint8_t address);
 
     /**
-     * @fn DFRobot_HumanPose_I2C::begin
+     * @fn begin
      * @brief 初始化 I2C 通信和传感器
      * @return 如果初始化成功返回 true，否则返回 false
      */
     bool begin(void);
+```
 
+### UART通信类：DFRobot_HumanPose_UART
+
+```c++
     /**
      * @fn DFRobot_HumanPose_UART
      * @brief DFRobot_HumanPose_UART 类的构造函数
@@ -213,7 +198,7 @@ HumanPose是一款可以检测人体姿态和手势的传感器
     DFRobot_HumanPose_UART(SoftwareSerial *sSerial, uint32_t baud);
 
     /**
-     * @fn DFRobot_HumanPose_UART::begin
+     * @fn begin
      * @brief 初始化 UART 通信和传感器
      * @return 如果初始化成功返回 true，否则返回 false
      */
@@ -241,18 +226,74 @@ HumanPose是一款可以检测人体姿态和手势的传感器
     bool setBaud(eBaudConfig_t baud);
 ```
 
+### 结果类：Result、PoseResult、HandResult
+
+```c++
+    // Result 基类包含以下公共成员：
+    uint8_t id;           // 检测目标ID
+    uint16_t xLeft;        // 边界框左上角X坐标
+    uint16_t yTop;         // 边界框左上角Y坐标
+    uint16_t width;        // 边界框宽度
+    uint16_t height;       // 边界框高度
+    uint8_t confidence;    // 置信度（0-100）
+    String name;           // 检测目标名称
+    bool used;             // 是否已使用标记
+
+    // PoseResult 类（人体姿态检测结果）额外包含以下关键点：
+    PointU16 nose;         // 鼻子
+    PointU16 leye;         // 左眼
+    PointU16 reye;         // 右眼
+    PointU16 lear;         // 左耳
+    PointU16 rear;         // 右耳
+    PointU16 lshoulder;    // 左肩
+    PointU16 rshoulder;    // 右肩
+    PointU16 lelbow;       // 左肘
+    PointU16 relbow;       // 右肘
+    PointU16 lwrist;       // 左手腕
+    PointU16 rwrist;       // 右手腕
+    PointU16 lhip;         // 左髋
+    PointU16 rhip;         // 右髋
+    PointU16 lknee;        // 左膝
+    PointU16 rknee;        // 右膝
+    PointU16 lankle;       // 左踝
+    PointU16 rankle;        // 右踝
+
+    // HandResult 类（手势检测结果）额外包含以下关键点：
+    PointU16 wrist;        // 手腕
+    PointU16 thumbCmc;     // 拇指CMC
+    PointU16 thumbMcp;     // 拇指MCP
+    PointU16 thumbIp;      // 拇指IP
+    PointU16 thumbTip;     // 拇指指尖
+    PointU16 indexFingerMcp;   // 食指MCP
+    PointU16 indexFingerPip;   // 食指PIP
+    PointU16 indexFingerDip;   // 食指DIP
+    PointU16 indexFingerTip;   // 食指指尖
+    PointU16 middleFingerMcp; // 中指MCP
+    PointU16 middleFingerPip; // 中指PIP
+    PointU16 middleFingerDip; // 中指DIP
+    PointU16 middleFingerTip; // 中指指尖
+    PointU16 ringFingerMcp;   // 无名指MCP
+    PointU16 ringFingerPip;   // 无名指PIP
+    PointU16 ringFingerDip;   // 无名指DIP
+    PointU16 ringFingerTip;   // 无名指指尖
+    PointU16 pinkyFingerMcp; // 小指MCP
+    PointU16 pinkyFingerPip; // 小指PIP
+    PointU16 pinkyFingerDip; // 小指DIP
+    PointU16 pinkyFingerTip; // 小指指尖
+```
+
 ## 兼容性
 
-MCU                | 表现良好	|表现异常	|未测试	|备注 |
------------------- | :----------: | :----------: | :---------: | -----
-Arduino Uno        |      √       |              |             | 需要 SoftwareSerial
-Arduino Leonardo   |      √       |              |             | 
-Arduino MEGA2560   |      √       |              |             | 
-FireBeetle-ESP32-E |      √       |              |             | 
-ESP8266            |      √       |              |             | 需要 SoftwareSerial
-FireBeetle-M0      |      √       |              |             | 
-Micro:bit          |      √       |              |             | 
-Raspberry Pi       |      √       |              |             | 
+| MCU                | 表现良好 | 表现异常 | 未测试 | 备注 |
+| ------------------ | :------: | :------: | :-----: | ---- |
+| Arduino Uno        |    √     |          |         | 需要 SoftwareSerial |
+| Arduino Leonardo   |    √     |          |         |                     |
+| Arduino MEGA2560   |    √     |          |         |                     |
+| FireBeetle-ESP32-E |    √     |          |         |                     |
+| ESP8266            |    √     |          |         | 需要 SoftwareSerial |
+| FireBeetle-M0      |    √     |          |         |                     |
+| Micro:bit          |    √     |          |         |                     |
+| Raspberry Pi       |    √     |          |         |                     |
 
 ## 历史
 

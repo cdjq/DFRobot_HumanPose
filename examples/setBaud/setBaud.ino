@@ -21,15 +21,15 @@
  *     RX        |        MCU TX          |     Serial1 TX1      |     5     |   5/D6  |  26/D3|     X      |  tx1  |
  *     TX        |        MCU RX          |     Serial1 RX1      |     4     |   4/D7  |  25/D2|     X      |  rx1  |
  * ----------------------------------------------------------------------------------------------------------------------*/
-// Initialize UART communication: Serial1, baud rate 921600 (initial baud rate), RX pin 25, TX pin 26 (ESP32)
+// Initialize UART communication: Serial1, baud rate 9600 (initial baud rate), RX pin 25, TX pin 26 (ESP32)
 #if defined(ARDUINO_AVR_UNO) || defined(ESP8266)
 #include <SoftwareSerial.h>
 SoftwareSerial mySerial(4, 5);
-DFRobot_HumanPose_UART humanPose(&mySerial, 921600);
+DFRobot_HumanPose_UART humanPose(&mySerial, 9600);
 #elif defined(ESP32)
-DFRobot_HumanPose_UART humanPose(&Serial1, 921600, /*RX pin*/25, /*TX pin*/26);
+DFRobot_HumanPose_UART humanPose(&Serial1, 9600, /*RX pin*/25, /*TX pin*/26);
 #else
-DFRobot_HumanPose_UART humanPose(&Serial1, 921600);
+DFRobot_HumanPose_UART humanPose(&Serial1, 9600);
 #endif
 
 /**
@@ -43,8 +43,8 @@ void setup() {
     
     Serial.println("========== DFRobot HumanPose Baud Rate Setting Example ==========");
     
-    // Initialize sensor (using initial baud rate 921600)
-    Serial.println("Initializing sensor with initial baud rate 921600...");
+    // Initialize sensor (using initial baud rate 9600)
+    Serial.println("Initializing sensor with initial baud rate 9600...");
     while (!humanPose.begin()) {
         Serial.println("Sensor init fail!");
         delay(1000);
@@ -60,7 +60,7 @@ void setup() {
     
     // Example: Set baud rate to 115200
     Serial.println("\nSetting baud rate to 115200...");
-    if (humanPose.setBaud(DFRobot_HumanPose_UART::eBaud_921600)) {
+    if (humanPose.setBaud(DFRobot_HumanPose_UART::eBaud_115200)) {
         Serial.println("Baud rate set successfully!");
         Serial.println("Note: If baud rate is modified, you need to re-initialize serial port and sensor object");
         Serial.println("And ensure the MCU's serial port baud rate matches the sensor baud rate");
