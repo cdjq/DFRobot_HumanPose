@@ -19,13 +19,15 @@
 #include <stdint.h>
 #include <string.h>
 #include <vector>
-#include <functional>
 #include <Arduino.h>
 #include <Wire.h>
 #include <ArduinoJson.h>
 
-
 #include "Result.h"
+
+#if defined(ARDUINO_AVR_UNO) || defined(ESP8266)
+#include<SoftwareSerial.h>
+#endif
 
 #define ARDUINOJSON_ENABLE_STD_STRING 1
 
