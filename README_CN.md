@@ -135,7 +135,7 @@ HumanPose是一款可以检测人体姿态和手势的传感器库。
      *              - `ePose` - 获取学习姿态列表
      * @return 包含学习目标名称的字符串向量。出错时返回空向量。
      */
-    std::vector<std::string> getLearnList(eModel_t model);
+    LearnList getLearnList(eModel_t model);
 
     /**
      * @fn availableResult

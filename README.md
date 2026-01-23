@@ -135,7 +135,7 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
      *              - `ePose` - Get list of learned poses
      * @return Vector of strings containing the names of learned targets. Returns empty vector on error.
      */
-    std::vector<std::string> getLearnList(eModel_t model);
+    LearnList getLearnList(eModel_t model);
 
     /**
      * @fn availableResult
