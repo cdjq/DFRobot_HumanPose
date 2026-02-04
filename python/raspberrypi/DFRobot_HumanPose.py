@@ -299,6 +299,8 @@ class DFRobot_HumanPose(object):
     _wait_delay = 2
     self._rx_buf = bytearray()
     self._results = []
+    self._name = ""
+    self._ret_data = None
 
     # super.__init__()
 
@@ -442,9 +444,52 @@ class DFRobot_HumanPose(object):
     logging.debug(f"EVENT: {json.dumps(obj, ensure_ascii=False)}")
 
   def _parser_response(self, obj: dict):
-    if obj["name"] == self.AT_NAME:
-      self._name = obj["data"]
-      logging.debug(self._name)
+    """
+    Handle response frames and update internal cached values.
+
+    Mirrors the C++ driver behaviour:
+    - NAME      -> update self._name
+    - TSCORE    -> numeric config value in self._ret_data
+    - TIOU      -> numeric config value in self._ret_data
+    - TSIMILARITY -> numeric config value in self._ret_data
+    - MODEL     -> current model id in self._ret_data
+    - POSELIST/HANDLIST -> learned target list in self._ret_data
+    """
+    r_name = obj.get("name", "") or ""
+    data = obj.get("data")
+
+    # Device name
+    if r_name == self.AT_NAME:
+      # Expect a simple string for name
+      self._name = str(data) if data is not None else ""
+      logging.debug("Device name: %s", self._name)
+
+    # Learned list (pose/hand)
+    elif self.AT_POSELIST in r_name or self.AT_HANDLIST in r_name:
+      # C++ stores into an internal LearnList; Python returns a plain list
+      if isinstance(data, list):
+        self._ret_data = data
+      else:
+        # Fallback: wrap single value
+        self._ret_data = [data] if data is not None else []
+      logging.debug("Learn list size: %d", len(self._ret_data))
+
+    # Threshold-like numeric configs (TSCORE/TIOU/TSIMILARITY)
+    elif self.AT_TSCORE in r_name or self.AT_TIOU in r_name or self.AT_TSIMILARITY in r_name:
+      try:
+        self._ret_data = int(data)
+      except (TypeError, ValueError):
+        self._ret_data = None
+      logging.debug("Config value (%s): %s", r_name, self._ret_data)
+
+    # Model info: {"id": <int>, ...}
+    elif self.AT_MODEL in r_name and isinstance(data, dict):
+      try:
+        self._ret_data = int(data.get("id", 0))
+      except (TypeError, ValueError):
+        self._ret_data = None
+      logging.debug("Model id: %s", self._ret_data)
+
     logging.debug(f"RESPONSE: {json.dumps(obj, ensure_ascii=False)}")
 
   def get_result(self):

@@ -14,9 +14,9 @@
 """
 
 import time
-import sys
 import os
-
+import sys
+sys.path.append("../")
 # Add parent path so DFRobot_HumanPose can be imported when running example standalone
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

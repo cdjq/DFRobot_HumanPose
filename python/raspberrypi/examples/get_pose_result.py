@@ -17,6 +17,8 @@ import time
 import threading
 import tkinter as tk
 from pinpong.board import Board
+import sys
+sys.path.append("../")
 from DFRobot_HumanPose import DFRobot_HumanPose_I2C, DFRobot_HumanPose_UART, HandResult, PoseResult
 
 Board("RPI").begin()
