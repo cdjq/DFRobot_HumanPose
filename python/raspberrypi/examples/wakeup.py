@@ -12,11 +12,41 @@
 @url    https://github.com/DFRobot/DFRobot_HumanPose
 """
 
-# TODO: Add wakeup/reset logic (e.g. GPIO to enable pin, or send wake command over I2C/UART)
-# if __name__ == "__main__":
-#     from pinpong.board import Board
-#     from DFRobot_HumanPose import DFRobot_HumanPose_I2C  # or UART
-#     Board("RPI").begin()
-#     hp = DFRobot_HumanPose_I2C(bus_num=1)
-#     if hp.begin():
-#         print("Sensor ready.")
+import time
+import RPi.GPIO as GPIO
+
+# Use BCM numbering
+WAKEUP_PIN = 17  # Change to the BCM pin you actually use
+
+
+def sensor_power_off():
+  """Power off: LOW level = disconnect / disable sensor"""
+  GPIO.output(WAKEUP_PIN, GPIO.LOW)
+  print("Sensor OFF (wakeup=LOW, sensor disconnected)")
+
+
+def sensor_power_on():
+  """Power on: HIGH level = enable / start sensor"""
+  GPIO.output(WAKEUP_PIN, GPIO.HIGH)
+  print("Sensor ON (wakeup=HIGH, sensor enabled)")
+
+
+def main():
+  GPIO.setmode(GPIO.BCM)
+  GPIO.setup(WAKEUP_PIN, GPIO.OUT, initial=GPIO.LOW)
+  print("Use BCM numbering, wakeup pin =", WAKEUP_PIN)
+
+  # Turn sensor off first
+  sensor_power_off()
+  time.sleep(1)
+
+  # Then turn sensor on
+  sensor_power_on()
+  # After this, you can run get_pose_result / get_hand_result examples if needed
+
+
+if __name__ == "__main__":
+  try:
+    main()
+  finally:
+    GPIO.cleanup()

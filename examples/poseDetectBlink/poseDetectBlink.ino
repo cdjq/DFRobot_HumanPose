@@ -1,5 +1,5 @@
 /**
- * @file poseDetect_Blink.ino
+ * @file poseDetectBlink.ino
  * @brief Pose detect blink example
  * @details This example demonstrates how to detect pose and turn on LED indicator when pose is detected
  * @copyright Copyright (c) 2025 DFRobot Co.Ltd (http://www.dfrobot.com)
