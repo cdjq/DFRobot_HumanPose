@@ -16,7 +16,6 @@ import json
 import logging
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any, Union
-from __future__ import annotations
 from abc import ABC, abstractmethod
 
 logging.basicConfig(
