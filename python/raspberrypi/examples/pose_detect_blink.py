@@ -5,7 +5,7 @@
 @brief  Pose detect blink example.
 @details This example detects human pose/hand and turns on LED when a learned target (id != 0) is detected.
 @n      Supports I2C or UART; option MODEL_HAND (hand) or MODEL_POSE (pose). LED on when learned target detected, off otherwise.
-@copyright   Copyright (c) 2025 DFRobot Co.Ltd (http://www.dfrobot.com)
+@copyright   Copyright (c) 2026 DFRobot Co.Ltd (http://www.dfrobot.com)
 @license     The MIT License (MIT)
 @author [thdyyl](yuanlong.yu@dfrobot.com)
 @version V1.0

@@ -2,7 +2,7 @@
  *@file DFRobot_HumanPose.cpp
  *@brief Implementation of class DFRobot_HumanPose (I2C/UART communication and detection logic).
  *@details This module implements the Human Pose sensor driver: AT command protocol, JSON parsing, pose/hand result handling.
- *@copyright   Copyright (c) 2025 DFRobot Co.Ltd (http://www.dfrobot.com)
+ *@copyright   Copyright (c) 2026 DFRobot Co.Ltd (http://www.dfrobot.com)
  *@License     The MIT License (MIT)
  *@author [thdyyl](yuanlong.yu@dfrobot.com)
  *@version  V1.0

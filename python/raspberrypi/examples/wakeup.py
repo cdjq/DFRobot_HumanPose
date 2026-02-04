@@ -4,7 +4,7 @@
 @file   wakeup.py
 @brief  Wakeup example (placeholder).
 @details This example is for waking or resetting the Human Pose sensor; implement as needed for your hardware (e.g. GPIO enable pin or wake command over I2C/UART).
-@copyright   Copyright (c) 2025 DFRobot Co.Ltd (http://www.dfrobot.com)
+@copyright   Copyright (c) 2026 DFRobot Co.Ltd (http://www.dfrobot.com)
 @license     The MIT License (MIT)
 @author [thdyyl](yuanlong.yu@dfrobot.com)
 @version V1.0

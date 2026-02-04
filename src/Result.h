@@ -2,7 +2,7 @@
  *@file Result.h
  *@brief Define the basic structure of Result, PoseResult, HandResult and PointU16.
  *@details This module defines detection result data: bounding box, score, id, name, and keypoints (pose 17 points, hand 21 points).
- *@copyright   Copyright (c) 2025 DFRobot Co.Ltd (http://www.dfrobot.com)
+ *@copyright   Copyright (c) 2026 DFRobot Co.Ltd (http://www.dfrobot.com)
  *@License     The MIT License (MIT)
  *@author [thdyyl](yuanlong.yu@dfrobot.com)
  *@version  V1.0

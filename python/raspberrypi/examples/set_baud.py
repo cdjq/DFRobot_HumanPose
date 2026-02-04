@@ -6,7 +6,7 @@
 @details This example configures and modifies the sensor's UART communication baud rate.
 @n      Connect and init sensor at current baud rate, send set command to change to target baud rate.
 @n      After change, re-open serial port at new baud rate to continue communication.
-@copyright   Copyright (c) 2025 DFRobot Co.Ltd (http://www.dfrobot.com)
+@copyright   Copyright (c) 2026 DFRobot Co.Ltd (http://www.dfrobot.com)
 @license     The MIT License (MIT)
 @author [thdyyl](yuanlong.yu@dfrobot.com)
 @version V1.0

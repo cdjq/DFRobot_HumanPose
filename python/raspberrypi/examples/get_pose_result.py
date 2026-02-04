@@ -5,7 +5,7 @@
 @brief  Get pose result example.
 @details This example runs human pose detection and displays results (bounding box and keypoints) on a tkinter canvas.
 @n      Uses MODEL_POSE; detection runs in a background thread and updates the GUI.
-@copyright   Copyright (c) 2025 DFRobot Co.Ltd (http://www.dfrobot.com)
+@copyright   Copyright (c) 2026 DFRobot Co.Ltd (http://www.dfrobot.com)
 @license     The MIT License (MIT)
 @author [thdyyl](yuanlong.yu@dfrobot.com)
 @version V1.0

@@ -2,7 +2,7 @@
  *@file DFRobot_HumanPose.h
  *@brief Define the basic structure of class DFRobot_HumanPose, the implementation of basic methods.
  *@details This is a human pose detection sensor that can be controlled through I2C/UART ports. Supports human pose detection, hand detection, and learned target recognition.
- *@copyright   Copyright (c) 2025 DFRobot Co.Ltd (http://www.dfrobot.com)
+ *@copyright   Copyright (c) 2026 DFRobot Co.Ltd (http://www.dfrobot.com)
  *@License     The MIT License (MIT)
  *@author [thdyyl](yuanlong.yu@dfrobot.com)
  *@version  V1.0

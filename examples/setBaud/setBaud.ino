@@ -2,7 +2,7 @@
  * @file setBaud.ino
  * @brief Set UART baud rate example
  * @details This example demonstrates how to configure and modify the sensor's UART communication baud rate
- * @copyright Copyright (c) 2025 DFRobot Co.Ltd (http://www.dfrobot.com)
+ * @copyright Copyright (c) 2026 DFRobot Co.Ltd (http://www.dfrobot.com)
  * @license The MIT License (MIT)
  * @author DFRobot
  * @version V1.0.0

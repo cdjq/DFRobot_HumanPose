@@ -2,7 +2,7 @@
  *@file Result.cpp
  *@brief Implementation of Result, PoseResult, HandResult (JSON parsing and keypoint mapping).
  *@details This module parses sensor JSON output into Result/PoseResult/HandResult structures.
- *@copyright   Copyright (c) 2025 DFRobot Co.Ltd (http://www.dfrobot.com)
+ *@copyright   Copyright (c) 2026 DFRobot Co.Ltd (http://www.dfrobot.com)
  *@License     The MIT License (MIT)
  *@author [thdyyl](yuanlong.yu@dfrobot.com)
  *@version  V1.0

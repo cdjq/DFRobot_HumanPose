@@ -2,7 +2,7 @@
  * @file getPoseResult.ino
  * @brief Example of getting human pose detection data
  * @details This example demonstrates how to get detection results from the human pose detection sensor and print bounding box and keypoint information
- * @copyright Copyright (c) 2025 DFRobot Co.Ltd (http://www.dfrobot.com)
+ * @copyright Copyright (c) 2026 DFRobot Co.Ltd (http://www.dfrobot.com)
  * @license The MIT License (MIT)
  * @author DFRobot
  * @version V1.0.0
