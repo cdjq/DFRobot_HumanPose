@@ -13,9 +13,7 @@
 
 /* >> Step 1: Please choose your communication method below */
 // #define HUMANPOSE_COMM_UART  // Use UART communication
-#define HUMANPOSE_COMM_I2C  // Use I2C communication
-
-
+#define HUMANPOSE_COMM_I2C    // Use I2C communication
 
 #if defined(HUMANPOSE_COMM_UART)
 /* ---------------------------------------------------------------------------------------------------------------------
@@ -29,10 +27,10 @@
 // Initialize UART communication: Serial1, baud rate 9600, RX pin 25, TX pin 26 (ESP32)
 #if defined(ARDUINO_AVR_UNO) || defined(ESP8266)
 #include <SoftwareSerial.h>
-SoftwareSerial mySerial(4, 5);
+SoftwareSerial         mySerial(4, 5);
 DFRobot_HumanPose_UART humanPose(&mySerial, 9600);
 #elif defined(ESP32)
-DFRobot_HumanPose_UART humanPose(&Serial1, 9600, /*RX pin*/25, /*TX pin*/26);
+DFRobot_HumanPose_UART humanPose(&Serial1, 9600, /*RX pin*/ 25, /*TX pin*/ 26);
 #else
 DFRobot_HumanPose_UART humanPose(&Serial1, 9600);
 #endif
@@ -52,69 +50,70 @@ DFRobot_HumanPose_I2C humanPose(&Wire, I2C_ADDR);
  * @brief Initialize function
  * @details Set up serial communication, initialize sensor, configure detection model
  */
-void setup() {
-    // Initialize serial port for debug output
-    Serial.begin(115200);
-    
-    // Initialize sensor, retry if failed
-    while (!humanPose.begin()) {
-        Serial.println("Sensor init fail!");
-        delay(1000);
-    }
-    Serial.println("Sensor init success!");
-    
-    // Set detection model: eHand (hand detection) or ePose (human pose detection)
-    humanPose.setModelType(DFRobot_HumanPose::ePose);
+void setup()
+{
+  // Initialize serial port for debug output
+  Serial.begin(115200);
+
+  // Initialize sensor, retry if failed
+  while (!humanPose.begin()) {
+    Serial.println("Sensor init fail!");
+    delay(1000);
+  }
+  Serial.println("Sensor init success!");
+
+  // Set detection model: eHand (hand detection) or ePose (human pose detection)
+  humanPose.setModelType(DFRobot_HumanPose::ePose);
 }
 
 /**
  * @brief Main loop function
  * @details Continuously get detection results from sensor and print bounding box and keypoint information
  */
-void loop() {
-    // Get detection results
-    if (humanPose.getResult() == DFRobot_HumanPose::eOK) {
-        Serial.println("getPoseResult success");
-        while (humanPose.availableResult()) {
-            PoseResult *result = static_cast<PoseResult *>(
-                humanPose.popResult());
-            Serial.println("id: " + String(result->id));
-            Serial.println("name: " + result->name);
-            /**
+void loop()
+{
+  // Get detection results
+  if (humanPose.getResult() == DFRobot_HumanPose::eOK) {
+    Serial.println("getPoseResult success");
+    while (humanPose.availableResult()) {
+      PoseResult *result = static_cast<PoseResult *>(humanPose.popResult());
+      Serial.println("id: " + String(result->id));
+      Serial.println("name: " + result->name);
+      /**
              * @brief Score of the result (0–100).
              *
              * Meaning depends on `id`:
              * - if `id == 0`: `score` is the detection confidence (probability/quality of detection).
              * - if `id != 0`: `score` is the similarity score (match degree to a learned class/gesture/pose).
              */
-            Serial.println("score: " + String(result->score));
-            Serial.println("xLeft: " + String(result->xLeft));
-            Serial.println("yTop: " + String(result->yTop));
-            Serial.println("width: " + String(result->width));
-            Serial.println("height: " + String(result->height));
-            Serial.println("nose: " + String(result->nose.x) + ", " + String(result->nose.y));
-            Serial.println("leye: " + String(result->leye.x) + ", " + String(result->leye.y));
-            Serial.println("reye: " + String(result->reye.x) + ", " + String(result->reye.y));
-            Serial.println("lear: " + String(result->lear.x) + ", " + String(result->lear.y));
-            Serial.println("rear: " + String(result->rear.x) + ", " + String(result->rear.y));
-            Serial.println("lshoulder: " + String(result->lshoulder.x) + ", " + String(result->lshoulder.y));
-            Serial.println("rshoulder: " + String(result->rshoulder.x) + ", " + String(result->rshoulder.y));
-            Serial.println("lelbow: " + String(result->lelbow.x) + ", " + String(result->lelbow.y));
-            Serial.println("relbow: " + String(result->relbow.x) + ", " + String(result->relbow.y));
-            Serial.println("lwrist: " + String(result->lwrist.x) + ", " + String(result->lwrist.y));
-            Serial.println("rwrist: " + String(result->rwrist.x) + ", " + String(result->rwrist.y));
-            Serial.println("lhip: " + String(result->lhip.x) + ", " + String(result->lhip.y));
-            Serial.println("rhip: " + String(result->rhip.x) + ", " + String(result->rhip.y));
-            Serial.println("lknee: " + String(result->lknee.x) + ", " + String(result->lknee.y));
-            Serial.println("rknee: " + String(result->rknee.x) + ", " + String(result->rknee.y));
-            Serial.println("lankle: " + String(result->lankle.x) + ", " + String(result->lankle.y));
-            Serial.println("rankle: " + String(result->rankle.x) + ", " + String(result->rankle.y));
-            Serial.println("--------------------------------");
-        }
-    } else {
-        Serial.println("getResult fail");
+      Serial.println("score: " + String(result->score));
+      Serial.println("xLeft: " + String(result->xLeft));
+      Serial.println("yTop: " + String(result->yTop));
+      Serial.println("width: " + String(result->width));
+      Serial.println("height: " + String(result->height));
+      Serial.println("nose: " + String(result->nose.x) + ", " + String(result->nose.y));
+      Serial.println("leye: " + String(result->leye.x) + ", " + String(result->leye.y));
+      Serial.println("reye: " + String(result->reye.x) + ", " + String(result->reye.y));
+      Serial.println("lear: " + String(result->lear.x) + ", " + String(result->lear.y));
+      Serial.println("rear: " + String(result->rear.x) + ", " + String(result->rear.y));
+      Serial.println("lshoulder: " + String(result->lshoulder.x) + ", " + String(result->lshoulder.y));
+      Serial.println("rshoulder: " + String(result->rshoulder.x) + ", " + String(result->rshoulder.y));
+      Serial.println("lelbow: " + String(result->lelbow.x) + ", " + String(result->lelbow.y));
+      Serial.println("relbow: " + String(result->relbow.x) + ", " + String(result->relbow.y));
+      Serial.println("lwrist: " + String(result->lwrist.x) + ", " + String(result->lwrist.y));
+      Serial.println("rwrist: " + String(result->rwrist.x) + ", " + String(result->rwrist.y));
+      Serial.println("lhip: " + String(result->lhip.x) + ", " + String(result->lhip.y));
+      Serial.println("rhip: " + String(result->rhip.x) + ", " + String(result->rhip.y));
+      Serial.println("lknee: " + String(result->lknee.x) + ", " + String(result->lknee.y));
+      Serial.println("rknee: " + String(result->rknee.x) + ", " + String(result->rknee.y));
+      Serial.println("lankle: " + String(result->lankle.x) + ", " + String(result->lankle.y));
+      Serial.println("rankle: " + String(result->rankle.x) + ", " + String(result->rankle.y));
+      Serial.println("--------------------------------");
     }
-    
-    // Delay to avoid output too fast
-    delay(100);
+  } else {
+    Serial.println("getResult fail");
+  }
+
+  // Delay to avoid output too fast
+  delay(100);
 }

@@ -1,12 +1,33 @@
+/*!
+ *@file Result.h
+ *@brief Define the basic structure of Result, PoseResult, HandResult and PointU16.
+ *@details This module defines detection result data: bounding box, score, id, name, and keypoints (pose 17 points, hand 21 points).
+ *@copyright   Copyright (c) 2025 DFRobot Co.Ltd (http://www.dfrobot.com)
+ *@License     The MIT License (MIT)
+ *@author [thdyyl](yuanlong.yu@dfrobot.com)
+ *@version  V1.0
+ *@date  2026-02-04
+ *@url         https://github.com/DFRobot/DFRobot_HumanPose
+*/
 #ifndef DFROBOT_HUMAN_RESULT
 #define DFROBOT_HUMAN_RESULT
 #include <Arduino.h>
 #include <ArduinoJson.h>
 
-struct PointU16 {uint16_t x{}, y{};};
+struct PointU16 {
+  uint16_t x{}, y{};
+};
 // #define ENABLE_DBG
 #ifdef ENABLE_DBG
-#define LDBG(...)  {Serial.print("["); Serial.print(__FUNCTION__); Serial.print("(): "); Serial.print(__LINE__); Serial.print(" ] "); Serial.println(__VA_ARGS__);}
+#define LDBG(...)                \
+  {                              \
+    Serial.print("[");           \
+    Serial.print(__FUNCTION__);  \
+    Serial.print("(): ");        \
+    Serial.print(__LINE__);      \
+    Serial.print(" ] ");         \
+    Serial.println(__VA_ARGS__); \
+  }
 #else
 #define LDBG(...)
 #endif
@@ -16,14 +37,14 @@ public:
   ~Result();
 
 public:
-  uint8_t id;
+  uint8_t  id;
   uint16_t xLeft;
   uint16_t yTop;
   uint16_t width;
   uint16_t height;
-  uint8_t score;
-  String name;
-  bool used = false;
+  uint8_t  score;
+  String   name;
+  bool     used = false;
 };
 
 class PoseResult : public Result {

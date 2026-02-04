@@ -43,7 +43,7 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
     /**
      * @fn setConfidence
      * @brief Set the detection confidence threshold
-     * 
+     *
      * Sets the minimum confidence score required for a detection to be considered valid.
      * Higher values result in fewer but more reliable detections. Lower values allow more
      * detections but may include false positives.
@@ -56,7 +56,7 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
     /**
      * @fn setIOU
      * @brief Set the Intersection over Union (IOU) threshold
-     * 
+     *
      * Sets the IOU threshold used for non-maximum suppression during object detection.
      * This parameter helps filter out overlapping detections.
      *
@@ -68,7 +68,7 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
     /**
      * @fn setModelType
      * @brief Set the detection model
-     * 
+     *
      * Selects which detection model to use. The sensor supports hand detection and human pose detection.
      *
      * @param model Model type of type `eModel_t`, with possible values including:
@@ -81,7 +81,7 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
     /**
      * @fn setLearnSimilarity
      * @brief Set the similarity threshold for learned targets
-     * 
+     *
      * Sets the similarity threshold used when matching detected objects against learned targets.
      * This parameter is used for gesture recognition and learned pose matching.
      *
@@ -93,7 +93,7 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
     /**
      * @fn getConfidence
      * @brief Get the current detection confidence threshold
-     * 
+     *
      * Retrieves the currently configured detection confidence threshold.
      *
      * @param confidence Pointer to store the confidence threshold value (0-100)
@@ -104,7 +104,7 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
     /**
      * @fn getIOU
      * @brief Get the current IOU threshold
-     * 
+     *
      * Retrieves the currently configured IOU threshold value.
      *
      * @param iou Pointer to store the IOU threshold value (0-100)
@@ -115,7 +115,7 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
     /**
      * @fn getLearnSimilarity
      * @brief Get the current similarity threshold
-     * 
+     *
      * Retrieves the currently configured similarity threshold value.
      *
      * @param Similarity Pointer to store the similarity threshold value (0-100)
@@ -126,7 +126,7 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
     /**
      * @fn getLearnList
      * @brief Get the list of learned targets for the specified model
-     * 
+     *
      * Retrieves a list of all learned target names for the specified detection model.
      * This function is useful for gesture recognition and pose learning applications.
      *
@@ -156,7 +156,7 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
     /**
      * @fn setBaud
      * @brief Set the UART baud rate
-     * 
+     *
      * Configures the UART communication baud rate. Users can choose the appropriate
      * baud rate based on their needs to ensure stable and effective communication
      * with the device.
@@ -239,9 +239,9 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
 
 | MCU                | Work Well | Work Wrong | Untested | Remarks |
 | ------------------ | :--------: | :--------: | :------: | ------- |
-| Arduino Uno        |     √      |            |          | Requires SoftwareSerial |
-| Arduino Leonardo   |     √      |            |          |                         |
-| Arduino MEGA2560   |     √      |            |          |                         |
+| Arduino Uno        |            |     √      |          |                         |
+| Arduino Leonardo   |            |     √      |          |                         |
+| Arduino MEGA2560   |            |     √      |          |                         |
 | FireBeetle-ESP32-E |     √      |            |          |                         |
 | ESP8266            |     √      |            |          | Requires SoftwareSerial |
 | FireBeetle-M0      |     √      |            |          |                         |

@@ -1,10 +1,25 @@
+/*!
+ *@file Result.cpp
+ *@brief Implementation of Result, PoseResult, HandResult (JSON parsing and keypoint mapping).
+ *@details This module parses sensor JSON output into Result/PoseResult/HandResult structures.
+ *@copyright   Copyright (c) 2025 DFRobot Co.Ltd (http://www.dfrobot.com)
+ *@License     The MIT License (MIT)
+ *@author [thdyyl](yuanlong.yu@dfrobot.com)
+ *@version  V1.0
+ *@date  2026-02-04
+ *@url         https://github.com/DFRobot/DFRobot_HumanPose
+*/
+
 #include "Result.h"
 
-static bool readPointU16(const JsonArray& points, size_t i, PointU16& out) {
-  if (i >= points.size()) return false;
+static bool readPointU16(const JsonArray& points, size_t i, PointU16& out)
+{
+  if (i >= points.size())
+    return false;
 
   JsonArray p = points[i].as<JsonArray>();
-  if (p.size() < 2) return false;
+  if (p.size() < 2)
+    return false;
 
   out.x = p[0].as<uint16_t>();
   out.y = p[1].as<uint16_t>();
@@ -13,25 +28,22 @@ static bool readPointU16(const JsonArray& points, size_t i, PointU16& out) {
 
 Result::Result(JsonArray data, JsonArrayConst names)
 {
-  used = false;
+  used          = false;
   JsonArray box = data[0].as<JsonArray>();
-  xLeft  = box[0] | 0;
-  yTop   = box[1] | 0;
-  width  = box[2] | 0;
-  height = box[3] | 0;
-  score  = box[4] | 0;
-  id = box[5] | 0;
-  name = "unknown";
-  if(id != 0) {
-    JsonObjectConst ob = names[id-1];
+  xLeft         = box[0] | 0;
+  yTop          = box[1] | 0;
+  width         = box[2] | 0;
+  height        = box[3] | 0;
+  score         = box[4] | 0;
+  id            = box[5] | 0;
+  name          = "unknown";
+  if (id != 0) {
+    JsonObjectConst ob = names[id - 1];
     name = name = ob["name"] | "unknown";
   }
 }
 
-Result::~Result()
-{
-
-}
+Result::~Result() {}
 
 PoseResult::PoseResult(JsonArray data, JsonArrayConst names) : Result(data, names)
 {
@@ -58,7 +70,7 @@ PoseResult::PoseResult(JsonArray data, JsonArrayConst names) : Result(data, name
 HandResult::HandResult(JsonArray data, JsonArrayConst names) : Result(data, names)
 {
   JsonArray points = data[1].as<JsonArray>();
-  
+
   LDBG(points.size());
   readPointU16(points, 0, wrist);
   readPointU16(points, 1, thumbCmc);

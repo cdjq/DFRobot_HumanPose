@@ -43,7 +43,7 @@ HumanPose是一款可以检测人体姿态和手势的传感器库。
     /**
      * @fn setConfidence
      * @brief 设置检测置信度阈值
-     * 
+     *
      * 设置检测被视为有效所需的最小置信度分数。
      * 较高的值会导致更少但更可靠的检测。较低的值允许更多
      * 检测但可能包含误报。
@@ -56,7 +56,7 @@ HumanPose是一款可以检测人体姿态和手势的传感器库。
     /**
      * @fn setIOU
      * @brief 设置交并比（IOU）阈值
-     * 
+     *
      * 设置用于目标检测过程中非极大值抑制的 IOU 阈值。
      * 此参数有助于过滤重叠的检测。
      *
@@ -68,7 +68,7 @@ HumanPose是一款可以检测人体姿态和手势的传感器库。
     /**
      * @fn setModelType
      * @brief 设置检测模型
-     * 
+     *
      * 选择要使用的检测模型。传感器支持手势检测和人体姿态检测。
      *
      * @param model 类型为 `eModel_t` 的模型类型，可能的值包括：
@@ -81,7 +81,7 @@ HumanPose是一款可以检测人体姿态和手势的传感器库。
     /**
      * @fn setLearnSimilarity
      * @brief 设置学习目标的相似度阈值
-     * 
+     *
      * 设置用于将检测到的目标与学习目标匹配的相似度阈值。
      * 此参数用于手势识别和学习姿态匹配。
      *
@@ -93,7 +93,7 @@ HumanPose是一款可以检测人体姿态和手势的传感器库。
     /**
      * @fn getConfidence
      * @brief 获取当前检测置信度阈值
-     * 
+     *
      * 检索当前配置的检测置信度阈值。
      *
      * @param confidence 用于存储置信度阈值值的指针（0-100）
@@ -104,7 +104,7 @@ HumanPose是一款可以检测人体姿态和手势的传感器库。
     /**
      * @fn getIOU
      * @brief 获取当前 IOU 阈值
-     * 
+     *
      * 检索当前配置的 IOU 阈值值。
      *
      * @param iou 用于存储 IOU 阈值值的指针（0-100）
@@ -115,7 +115,7 @@ HumanPose是一款可以检测人体姿态和手势的传感器库。
     /**
      * @fn getLearnSimilarity
      * @brief 获取当前相似度阈值
-     * 
+     *
      * 检索当前配置的相似度阈值值。
      *
      * @param Similarity 用于存储相似度阈值值的指针（0-100）
@@ -126,7 +126,7 @@ HumanPose是一款可以检测人体姿态和手势的传感器库。
     /**
      * @fn getLearnList
      * @brief 获取指定模型的学习目标列表
-     * 
+     *
      * 检索指定检测模型的所有学习目标名称列表。
      * 此函数可用于手势识别和姿态学习应用。
      *
@@ -156,7 +156,7 @@ HumanPose是一款可以检测人体姿态和手势的传感器库。
     /**
      * @fn setBaud
      * @brief 设置 UART 波特率
-     * 
+     *
      * 配置 UART 通信波特率。用户可以根据需要选择合适的
      * 波特率，以确保与设备的稳定和有效通信。
      *
@@ -231,9 +231,9 @@ HumanPose是一款可以检测人体姿态和手势的传感器库。
 
 | MCU                | 表现良好 | 表现异常 | 未测试 | 备注 |
 | ------------------ | :------: | :------: | :-----: | ---- |
-| Arduino Uno        |    √     |          |         | 需要 SoftwareSerial |
-| Arduino Leonardo   |    √     |          |         |                     |
-| Arduino MEGA2560   |    √     |          |         |                     |
+| Arduino Uno        |          |     √    |         |                     |
+| Arduino Leonardo   |          |     √    |         |                     |
+| Arduino MEGA2560   |          |     √    |         |                     |
 | FireBeetle-ESP32-E |    √     |          |         |                     |
 | ESP8266            |    √     |          |         | 需要 SoftwareSerial |
 | FireBeetle-M0      |    √     |          |         |                     |
