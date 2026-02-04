@@ -12,22 +12,50 @@
 #ifndef DFROBOT_HUMANPOSE_H
 #define DFROBOT_HUMANPOSE_H
 
-#include <Arduino.h>
-#include <ArduinoJson.h>
-#include <Wire.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <Arduino.h>
+#include <Wire.h>
 
-#include <vector>
+/* Avoid min/max macro conflicts on nRF5/microbit and other platforms. */
+#ifdef min
+#undef min
+#endif
+#ifdef max
+#undef max
+#endif
+
+/* Detect small-memory boards (microbit, nRF5, AVR) for reduced buffers. Must be before ArduinoJson. */
+#if defined(ARDUINO_BBC_MICROBIT) || defined(ARDUINO_BBC_MICROBIT_V2) || defined(ARDUINO_AVR_LEONARDO) || defined(ARDUINO_AVR_UNO) || \
+    (defined(ARDUINO_ARCH_AVR) && !defined(ARDUINO_AVR_MEGA2560) && !defined(ARDUINO_AVR_MEGA)) || \
+    defined(ARDUINO_ARCH_NRF5)
+#define USE_SIMPLE_CONTAINERS 1
+#else
+#define USE_SIMPLE_CONTAINERS 0
+#endif
+
+/* ArduinoJson: reduce memory only for small-memory boards. Large boards (ESP32 etc) need Arduino String. */
+#if USE_SIMPLE_CONTAINERS
+#define ARDUINOJSON_ENABLE_STD_STRING      0
+#define ARDUINOJSON_ENABLE_ARDUINO_STRING  0
+#define ARDUINOJSON_ENABLE_ARDUINO_STREAM  0
+#define ARDUINOJSON_ENABLE_STD_STREAM      0
+#define ARDUINOJSON_DECODE_UNICODE         0
+#define ARDUINOJSON_ENABLE_COMMENTS        0
+#define ARDUINOJSON_ENABLE_NAN             0
+#define ARDUINOJSON_ENABLE_INFINITY        0
+#define ARDUINOJSON_USE_LONG_LONG          0
+#define ARDUINOJSON_USE_DOUBLE             0
+#endif
+
+#include <ArduinoJson.h>
 
 #include "Result.h"
 
 #if defined(ARDUINO_AVR_UNO) || defined(ESP8266)
 #include <SoftwareSerial.h>
 #endif
-
-#define ARDUINOJSON_ENABLE_STD_STRING 1
 
 // #define ENABLE_DBG
 // #ifdef ENABLE_DBG
@@ -36,7 +64,27 @@
 // #define LDBG(...)
 // #endif
 
-using LearnList = std::vector<std::string>;
+/** Fixed-capacity list for learned target names (avoids std::vector for AVR/min-max compatibility). */
+#if USE_SIMPLE_CONTAINERS
+#define LEARN_LIST_CAP 16
+#else
+#define LEARN_LIST_CAP 24
+#endif
+class LearnList {
+public:
+  static const size_t CAP = LEARN_LIST_CAP;
+  void clear() { _count = 0; }
+  void push_back(const String &s) {
+    if (_count < CAP) _items[_count++] = s;
+  }
+  size_t size() const { return _count; }
+  String       &operator[](size_t i) { return _items[i]; }
+  const String &operator[](size_t i) const { return _items[i]; }
+
+private:
+  String _items[CAP];
+  size_t _count = 0;
+};
 
 class DFRobot_HumanPose {
 protected:
@@ -44,7 +92,7 @@ protected:
 #define HUMANPOSE_NAME "DFRobot Human Pose"
 
 #define HEADER_LEN     (uint8_t)4
-#define MAX_PL_LEN     (uint8_t)250
+#define MAX_PL_LEN     (uint8_t)50
 #define MAX_SPI_PL_LEN (uint16_t)4095
 #define CHECKSUM_LEN   (uint8_t)2
 
@@ -57,15 +105,25 @@ protected:
 #define FEATURE_TRANSPORT_CMD_RESET     0x06
 
 #ifndef RX_MAX_SIZE
-#ifdef ARDUINO_ARCH_ESP32
+#if USE_SIMPLE_CONTAINERS
+#define RX_MAX_SIZE 1024
+#elif defined(ARDUINO_ARCH_ESP32)
 #define RX_MAX_SIZE 32 * 1024
+#elif defined(ESP8266)
+#define RX_MAX_SIZE 2 * 1024
 #else
 #define RX_MAX_SIZE 4 * 1024
 #endif
 #endif
 
 #ifndef TX_MAX_SIZE
+#if USE_SIMPLE_CONTAINERS
+#define TX_MAX_SIZE 32
+#elif defined(ESP8266)
+#define TX_MAX_SIZE 512
+#else
 #define TX_MAX_SIZE 4 * 1024
+#endif
 #endif
 
 #ifndef I2C_CLOCK
@@ -91,17 +149,17 @@ protected:
 
 #define MAX_RESULT_NUM 4
 
-  static constexpr const char AT_NAME[]        = "NAME";
-  static constexpr const char AT_INVOKE[]      = "INVOKE";
-  static constexpr const char AT_TSCORE[]      = "TSCORE";
-  static constexpr const char AT_TIOU[]        = "TIOU";
-  static constexpr const char AT_MODELS[]      = "MODELS?";
-  static constexpr const char AT_MODEL[]       = "MODEL";
-  static constexpr const char EVENT_INVOKE[]   = "INVOKE";
-  static constexpr const char AT_TSIMILARITY[] = "TSIMILARITY";
-  static constexpr const char AT_BAUD[]        = "BAUDRATE";
-  static constexpr const char AT_POSELIST[]    = "POSELIST?";
-  static constexpr const char AT_HANDLIST[]    = "HANDLIST?";
+#define AT_NAME        "NAME"
+#define AT_INVOKE      "INVOKE"
+#define AT_TSCORE      "TSCORE"
+#define AT_TIOU        "TIOU"
+#define AT_MODELS      "MODELS?"
+#define AT_MODEL       "MODEL"
+#define EVENT_INVOKE   "INVOKE"
+#define AT_TSIMILARITY "TSIMILARITY"
+#define AT_BAUD        "BAUDRATE"
+#define AT_POSELIST    "POSELIST?"
+#define AT_HANDLIST    "HANDLIST?"
 
 public:
   /**
@@ -139,7 +197,12 @@ protected:
 #if ARDUINOJSON_VERSION_MAJOR == 7
   JsonDocument response;    // for json response
 #else
-  StaticJsonDocument<2048> response;    // for json response
+  #if USE_SIMPLE_CONTAINERS
+  StaticJsonDocument<1024> response;    // smaller for microbit/nRF5/AVR
+  #else
+  /* INVOKE event (hand/pose keypoints) can be large; 8KB avoids deserializeJson NoMemory. */
+  StaticJsonDocument<8192> response;    // for json response
+  #endif
 #endif
   char    *tx_buf;
   uint32_t tx_len;

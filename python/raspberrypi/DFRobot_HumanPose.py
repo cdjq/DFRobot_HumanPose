@@ -92,7 +92,7 @@ class Result:
 
     box = data[0] if isinstance(data, list) and len(data) > 0 else None
     if not (isinstance(box, list) and len(box) >= 6):
-      return r  # 结构不对就返回默认值
+      return r  # invalid structure, return default
 
     r.xLeft = int(box[0]) & 0xFFFF
     r.yTop = int(box[1]) & 0xFFFF
@@ -319,38 +319,6 @@ class DFRobot_HumanPose(object):
       return False
     return True
 
-  # def _wait(self, expected_type: int, cmd: str, timeout_ms=3000) -> int:
-  #     start = time.monotonic()
-  #     while (time.monotonic() - start) * 1000 <= timeout_ms:
-  #         length = self._available()
-
-  #         if length <= 0:
-  #             time.sleep(0.001)
-  #             continue
-  #         data = self._read(length)
-  #         if not data:
-  #             continue
-  #         raw = bytes(data)
-  #         text = raw.decode("utf-8", errors="ignore")
-
-  #         # 解析这一批里可能包含的多个 JSON（你的例子就是两个）
-  #         for obj in self._parse_json_objects_from_text(text):
-  #             if not isinstance(obj, dict):
-  #                 continue
-  #             r_type = obj.get("type")
-  #             r_name = obj.get("name") or ""
-  #             r_code = obj.get("code", 0)
-
-  #             if r_type == self.CMD_TYPE_EVENT:
-  #                 self._parser_event(obj)
-
-  #             # 匹配命令名：完全匹配 or 前缀匹配（等价你 C 里的 strcmp/strncmp）
-  #             if r_type == expected_type and r_name:
-  #                 if r_name == cmd or r_name.startswith(cmd):
-  #                     self._parser_response(obj)
-  #                     return int(r_code)
-
-  #     return self.CODE_TIMEOUT
   def _wait(self, expected_type: int, cmd: str, timeout_ms=3000) -> int:
     start = time.monotonic()
     dec = json.JSONDecoder()
@@ -369,15 +337,15 @@ class DFRobot_HumanPose(object):
       data = bytes(chunk)
       self._rx_buf.extend(data)
 
-      # 把 buffer 尽量解码成字符串（ignore 避免半个 utf-8）
+      # Decode buffer to string (ignore avoids partial utf-8)
       text = self._rx_buf.decode("utf-8", errors="ignore")
 
-      # 尝试在 text 里连续解析多个 JSON（允许前面有杂字节）
+      # Parse multiple JSON objects from text (allows leading non-JSON bytes)
       idx = 0
       consumed_upto = 0
 
       while idx < len(text):
-        # 找下一个 JSON 起点
+        # Find next JSON start
         p1 = text.find("{", idx)
         p2 = text.find("[", idx)
         if p1 == -1 and p2 == -1:
@@ -387,10 +355,10 @@ class DFRobot_HumanPose(object):
         try:
           obj, end = dec.raw_decode(text, start_pos)
         except json.JSONDecodeError:
-          # 可能是 JSON 还没收全，先等下一批数据
+          # JSON may be incomplete, wait for more data
           break
 
-        # 解析到一个完整 JSON，记录已经消费到哪里
+        # Parsed one complete JSON, record consumed position
         consumed_upto = end
         idx = end
 
@@ -407,15 +375,15 @@ class DFRobot_HumanPose(object):
         if r_type == expected_type and r_name:
           if r_name == cmd or r_name.startswith(cmd):
             self._parser_response(obj)
-            # 消费掉已处理的文本对应的 bytes（简单做法：清空 buffer）
+            # Consume processed bytes (simple: clear buffer)
             self._rx_buf.clear()
             return int(r_code)
 
-      # 把已经解析掉的那部分从 rx_buf 移除
-      # 这里用简单策略：如果成功解析过至少一个 JSON，就清空已 decode 的 buffer
-      # 更精确的 bytes 对齐比较麻烦，但对 ASCII/JSON 串口数据通常足够稳定
+      # Remove parsed portion from rx_buf
+      # Simple strategy: clear decoded buffer if at least one JSON was parsed
+      # Precise byte alignment is trickier; for ASCII/JSON serial data this is usually stable enough
       if consumed_upto > 0:
-        # 重新编码得到 consumed 的字节长度（对 ASCII/UTF-8 安全）
+        # Re-encode to get consumed byte length (safe for ASCII/UTF-8)
         consumed_bytes = len(text[:consumed_upto].encode("utf-8", errors="ignore"))
         del self._rx_buf[:consumed_bytes]
 
@@ -428,7 +396,7 @@ class DFRobot_HumanPose(object):
     n = len(text)
 
     while idx < n:
-      # 找下一个 JSON 起始符号
+      # Find next JSON start symbol
       p1 = text.find("{", idx)
       p2 = text.find("[", idx)
       if p1 == -1 and p2 == -1:
@@ -441,7 +409,7 @@ class DFRobot_HumanPose(object):
         yield obj
         idx = end
       except json.JSONDecodeError:
-        # 可能是半包/乱码，向后挪一点继续找
+        # May be partial/garbage, advance and continue
         idx += 1
 
   def _parser_event(self, obj: dict):
@@ -451,7 +419,7 @@ class DFRobot_HumanPose(object):
       return
 
     data = obj.get("data") or {}
-    # 兼容：data 不是 dict 直接返回
+    # Compat: if data is not dict return
     if not isinstance(data, dict):
       return
 
@@ -666,7 +634,7 @@ class DFRobot_HumanPose_I2C(DFRobot_HumanPose):
         self.i2c.writeto(self.i2c_addr, buf)
       return True
     except Exception as e:
-      print("write error:", e)
+      logging.debug("write error: %s", e)
       return False
 
   def _read(self, length: int) -> List[int]:
@@ -684,7 +652,7 @@ class DFRobot_HumanPose_I2C(DFRobot_HumanPose):
         ret_data.extend(self.i2c.readfrom(self.i2c_addr, remain))
       return ret_data
     except Exception as e:
-      print("read error:", e)
+      logging.debug("read error: %s", e)
       return []
 
   def _available(self) -> int:
@@ -693,7 +661,7 @@ class DFRobot_HumanPose_I2C(DFRobot_HumanPose):
       len_data = self.i2c.readfrom(self.i2c_addr, 2)
       return (len_data[0] << 8) | len_data[1]
     except Exception as e:
-      print("available error:", e)
+      logging.debug("available error: %s", e)
       return 0
 
 
@@ -744,16 +712,16 @@ class DFRobot_HumanPose_UART(DFRobot_HumanPose):
     try:
       self.uart.write(data)
       return True
-    except:
-      print("uart error")
+    except Exception as e:
+      logging.debug("uart error: %s", e)
       return False
 
   def _read(self, length: int) -> List[int]:
     try:
       ret_data = self.uart.read(length)
       return ret_data
-    except:
-      print("uart _read error")
+    except Exception as e:
+      logging.debug("uart _read error: %s", e)
       return []
 
   def _available(self) -> int:
@@ -761,8 +729,8 @@ class DFRobot_HumanPose_UART(DFRobot_HumanPose):
       len_data = self.uart.any()
       logging.debug(len_data)
       return len_data
-    except:
-      print("_available error")
+    except Exception as e:
+      logging.debug("_available error: %s", e)
       return 0
 
   def set_baud(self, baudrate: int) -> bool:

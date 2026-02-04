@@ -12,8 +12,8 @@
 
 #include "DFRobot_HumanPose.h"
 
-#ifdef ARDUINO_ARCH_RENESAS
-char *strnstr(const char *haystack, const char *needle, size_t n)
+/* Portable strnstr for platforms that don't provide it (e.g. nRF5, AVR). */
+static char *humanpose_strnstr(const char *haystack, const char *needle, size_t n)
 {
   if (!needle || n == 0) {
     return NULL;
@@ -42,7 +42,53 @@ char *strnstr(const char *haystack, const char *needle, size_t n)
 
   return NULL;
 }
-#endif
+
+/**
+ * Find the matching '}' for a JSON object starting at '{'.
+ * Skips braces inside double-quoted strings. Returns pointer to '}' or NULL if incomplete.
+ */
+static char *humanpose_json_object_end(char *start, char *buf_end)
+{
+  if (!start || start >= buf_end || *start != '{') {
+    return NULL;
+  }
+  int   depth = 1;
+  char *p     = start + 1;
+  bool  in_string = false;
+  bool  escape    = false;
+
+  while (p < buf_end && *p != '\0') {
+    if (escape) {
+      escape = false;
+      p++;
+      continue;
+    }
+    if (in_string) {
+      if (*p == '\\') {
+        escape = true;
+      } else if (*p == '"') {
+        in_string = false;
+      }
+      p++;
+      continue;
+    }
+    if (*p == '"') {
+      in_string = true;
+      p++;
+      continue;
+    }
+    if (*p == '{' || *p == '[') {
+      depth++;
+    } else if (*p == '}' || *p == ']') {
+      depth--;
+      if (depth == 0) {
+        return p;
+      }
+    }
+    p++;
+  }
+  return NULL;
+}
 
 // ============ Base Class: DFRobot_HumanPose ============
 
@@ -96,6 +142,7 @@ bool DFRobot_HumanPose::begin()
   }
 
   if (!rx_buf || !tx_buf) {
+    LDBG("malloc fail");
     return false;
   }
 
@@ -127,11 +174,12 @@ int DFRobot_HumanPose::wait(int type, const char *cmd, uint32_t timeout)
 
   while (millis() - startTime <= timeout) {
     int len = available();
+    
     if (len == 0) {
       delay(1);
       continue;
     }
-
+    LDBG(len);
     if (len + rx_end > rx_len) {
       len = rx_len - rx_end;
       if (len <= 0) {
@@ -143,73 +191,93 @@ int DFRobot_HumanPose::wait(int type, const char *cmd, uint32_t timeout)
     rx_end += read(rx_buf + rx_end, len);
     rx_buf[rx_end] = '\0';
 
-    while (char *suffix = strnstr(rx_buf, RES_SUF, rx_end)) {
-      if (char *prefix = strnstr(rx_buf, RES_PRE, suffix - rx_buf)) {
-        // Extract JSON payload
-        len     = suffix - prefix + RES_SUF_LEN;
-        payload = (char *)malloc(len);
+    char *prefix = humanpose_strnstr(rx_buf, RES_PRE, rx_end);
+    if (!prefix) {
+      continue;
+    }
+    char *json_end = humanpose_json_object_end(prefix + 1, rx_buf + rx_end);
+    if (!json_end) {
+      /* Incomplete JSON (e.g. frame split across reads); wait for more data. */
+      if (rx_end >= rx_len) {
+        rx_end = 0;
+      }
+      continue;
+    }
 
-        if (!payload) {
-          continue;
-        }
+    {
+      /* From '{' (prefix+1) to '}' (json_end) inclusive */
+      size_t json_len = (size_t)(json_end - (prefix + 1) + 1);
+      payload = (char *)malloc(json_len + 1);
+      LDBG("json payload");
+      if (!payload) {
+        LDBG("payload null");
+        continue;
+      }
 
-        memcpy(payload, prefix + 1, len - 1);    // remove "\r" and "\n"
-        memmove(rx_buf, suffix + RES_SUF_LEN, rx_end - (suffix - rx_buf) - RES_SUF_LEN);
-        rx_end -= (suffix - rx_buf) + RES_SUF_LEN;
-        payload[len - 1] = '\0';
+      memcpy(payload, prefix + 1, json_len);
+      payload[json_len] = '\0';
 
-        response.clear();
-        DeserializationError error = deserializeJson(response, payload);
-        free(payload);
-        payload = NULL;
+      /* Consume frame from buffer: prefix through trailing \\n or \\r\\n */
+      char *tail = json_end + 1;
+      while (tail < rx_buf + rx_end && (*tail == '\n' || *tail == '\r')) {
+        tail++;
+      }
+      memmove(rx_buf, tail, (size_t)(rx_end - (tail - rx_buf)));
+      rx_end -= (uint32_t)(tail - rx_buf);
+      rx_buf[rx_end] = '\0';
 
-        if (error) {
-          continue;
-        }
-        LDBG(response["type"].as<uint8_t>())
-        if (response["type"] == CMD_TYPE_RESPONSE) {
-          const char *event_name = response["name"];
-          LDBG("RESPONSE");
-          if (event_name && strstr(event_name, cmd)) {
-            LDBG("NAME");
-            if (strstr(event_name, AT_HANDLIST) || strstr(event_name, AT_POSELIST)) {
-              LDBG("LEARN LIST");
-              JsonArray learn_data = response["data"].as<JsonArray>();
-              for (size_t i = 0; i < learn_data.size(); i++) {
-                _learn_list.push_back(learn_data[i].as<std::string>());
-              }
-            } else if (strstr(event_name, AT_TSCORE) || strstr(event_name, AT_TIOU) || strstr(event_name, AT_TSIMILARITY)) {
-              LDBG("CONFIG")
-              _ret_data = response["data"];
-            } else if (strstr(event_name, AT_MODEL)) {
-              JsonObject data = response["data"].as<JsonObject>();
-              _ret_data       = data["id"];
-            } else if (strstr(event_name, AT_NAME)) {
-              const char *s = response["data"] | "";
-              snprintf(_name, sizeof(_name), "%s", s);
+      response.clear();
+      DeserializationError error = deserializeJson(response, payload);
+      free(payload);
+      payload = NULL;
+
+      if (error) {
+        LDBG(error.c_str());
+        continue;
+      }
+      LDBG(response["type"].as<uint8_t>())
+      if (response["type"] == CMD_TYPE_RESPONSE) {
+        const char *event_name = response["name"];
+        LDBG("RESPONSE");
+        if (event_name && strstr(event_name, cmd)) {
+          LDBG("NAME");
+          if (strstr(event_name, AT_HANDLIST) || strstr(event_name, AT_POSELIST)) {
+            LDBG("LEARN LIST");
+            JsonArray learn_data = response["data"].as<JsonArray>();
+            for (size_t i = 0; i < learn_data.size(); i++) {
+#if USE_SIMPLE_CONTAINERS
+              const char *name = learn_data[i].as<const char *>();
+              if (name) _learn_list.push_back(name);
+#else
+              _learn_list.push_back(learn_data[i].as<String>());
+#endif
             }
+          } else if (strstr(event_name, AT_TSCORE) || strstr(event_name, AT_TIOU) || strstr(event_name, AT_TSIMILARITY)) {
+            LDBG("CONFIG")
+            _ret_data = response["data"];
+          } else if (strstr(event_name, AT_MODEL)) {
+            JsonObject data = response["data"].as<JsonObject>();
+            _ret_data       = data["id"];
+          } else if (strstr(event_name, AT_NAME)) {
+            const char *s = response["data"] | "";
+            snprintf(_name, sizeof(_name), "%s", s);
           }
         }
-        if (response["type"] == CMD_TYPE_EVENT) {
-          parser_event();
-        }
+      }
+      if (response["type"] == CMD_TYPE_EVENT) {
+        parser_event();
+      }
 
-        ret = response["code"];
+      ret = response["code"];
 
-        // Match command name
-        const char *resp_name = response["name"];
-        if (resp_name && response["type"] == type) {
-          size_t cmd_len  = strlen(cmd);
-          size_t resp_len = strlen(resp_name);
-          if ((cmd_len == resp_len && strcmp(resp_name, cmd) == 0) || (cmd_len > 0 && resp_len > 0 && strncmp(resp_name, cmd, cmd_len) == 0)) {
-            return ret;
-          }
+      /* Match command name */
+      const char *resp_name = response["name"];
+      if (resp_name && response["type"] == type) {
+        size_t cmd_len  = strlen(cmd);
+        size_t resp_len = strlen(resp_name);
+        if ((cmd_len == resp_len && strcmp(resp_name, cmd) == 0) || (cmd_len > 0 && resp_len > 0 && strncmp(resp_name, cmd, cmd_len) == 0)) {
+          return ret;
         }
-      } else {
-        // discard this reply (no prefix found before suffix)
-        memmove(rx_buf, suffix + RES_SUF_LEN, rx_end - (suffix - rx_buf) - RES_SUF_LEN);
-        rx_end -= (suffix - rx_buf) + RES_SUF_LEN;
-        rx_buf[rx_end] = '\0';
       }
     }
   }
@@ -266,17 +334,27 @@ void DFRobot_HumanPose::parser_event()
  */
 DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getResult()
 {
-  char cmd[64] = { 0 };
-  snprintf(cmd, sizeof(cmd), CMD_PRE "%s=1,0,1" CMD_SUF, AT_INVOKE);
-  write(cmd, strlen(cmd));
+    char cmd[64] = {0};
+    snprintf(cmd, sizeof(cmd), CMD_PRE "%s=1,0,1" CMD_SUF, AT_INVOKE);
+    write(cmd, strlen(cmd));
 
-  if (wait(CMD_TYPE_RESPONSE, AT_INVOKE) == eOK) {
-    if (wait(CMD_TYPE_EVENT, EVENT_INVOKE) == eOK) {
-      return eOK;
+    if (wait(CMD_TYPE_RESPONSE, AT_INVOKE) == eOK)
+    {
+        if (wait(CMD_TYPE_EVENT, EVENT_INVOKE) == eOK)
+        {
+            return eOK;
+        }
+        else
+        {
+            LDBG("Wait for EVENT_INVOKE timeout");
+        }
     }
-  }
+    else
+    {
+        LDBG("Wait for AT_INVOKE response timeout");
+    }
 
-  return eTimedOut;
+    return eTimedOut;
 }
 
 DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::setConfidence(uint8_t confidence)
@@ -473,13 +551,13 @@ int DFRobot_HumanPose_I2C::available()
   uint8_t buf[2] = { 0 };
   delay(_wait_delay);
   _wire->beginTransmission(__address);
-  _wire->write(FEATURE_TRANSPORT);
-  _wire->write(FEATURE_TRANSPORT_CMD_AVAILABLE);
-  _wire->write(0);
-  _wire->write(0);
+  _wire->write((uint8_t)FEATURE_TRANSPORT);
+  _wire->write((uint8_t)FEATURE_TRANSPORT_CMD_AVAILABLE);
+  _wire->write((uint8_t)0);
+  _wire->write((uint8_t)0);
   // TODO checksum
-  _wire->write(0);
-  _wire->write(0);
+  _wire->write((uint8_t)0);
+  _wire->write((uint8_t)0);
   if (_wire->endTransmission() == 0) {
     delay(_wait_delay);
     _wire->requestFrom(__address, (uint8_t)2);
@@ -497,13 +575,13 @@ int DFRobot_HumanPose_I2C::read(char *data, int len)
   for (uint16_t i = 0; i < packets; i++) {
     delay(_wait_delay);
     _wire->beginTransmission(__address);
-    _wire->write(FEATURE_TRANSPORT);
-    _wire->write(FEATURE_TRANSPORT_CMD_READ);
-    _wire->write(MAX_PL_LEN >> 8);
-    _wire->write(MAX_PL_LEN & 0xFF);
+    _wire->write((uint8_t)FEATURE_TRANSPORT);
+    _wire->write((uint8_t)FEATURE_TRANSPORT_CMD_READ);
+    _wire->write((uint8_t)(MAX_PL_LEN >> 8));
+    _wire->write((uint8_t)(MAX_PL_LEN & 0xFF));
     // TODO checksum
-    _wire->write(0);
-    _wire->write(0);
+    _wire->write((uint8_t)0);
+    _wire->write((uint8_t)0);
     if (_wire->endTransmission() == 0) {
       delay(_wait_delay);
       _wire->requestFrom(__address, MAX_PL_LEN);
@@ -514,13 +592,13 @@ int DFRobot_HumanPose_I2C::read(char *data, int len)
   if (remain) {
     delay(_wait_delay);
     _wire->beginTransmission(__address);
-    _wire->write(FEATURE_TRANSPORT);
-    _wire->write(FEATURE_TRANSPORT_CMD_READ);
-    _wire->write(remain >> 8);
-    _wire->write(remain & 0xFF);
+    _wire->write((uint8_t)FEATURE_TRANSPORT);
+    _wire->write((uint8_t)FEATURE_TRANSPORT_CMD_READ);
+    _wire->write((uint8_t)(remain >> 8));
+    _wire->write((uint8_t)(remain & 0xFF));
     // TODO checksum
-    _wire->write(0);
-    _wire->write(0);
+    _wire->write((uint8_t)0);
+    _wire->write((uint8_t)0);
     if (_wire->endTransmission() == 0) {
       delay(_wait_delay);
       _wire->requestFrom(__address, remain);
@@ -539,27 +617,27 @@ int DFRobot_HumanPose_I2C::write(const char *data, int len)
   for (uint16_t i = 0; i < packets; i++) {
     delay(_wait_delay);
     _wire->beginTransmission(__address);
-    _wire->write(FEATURE_TRANSPORT);
-    _wire->write(FEATURE_TRANSPORT_CMD_WRITE);
-    _wire->write(MAX_PL_LEN >> 8);
-    _wire->write(MAX_PL_LEN & 0xFF);
+    _wire->write((uint8_t)FEATURE_TRANSPORT);
+    _wire->write((uint8_t)FEATURE_TRANSPORT_CMD_WRITE);
+    _wire->write((uint8_t)(MAX_PL_LEN >> 8));
+    _wire->write((uint8_t)(MAX_PL_LEN & 0xFF));
     _wire->write((const uint8_t *)(data + i * MAX_PL_LEN), MAX_PL_LEN);
     // TODO checksum
-    _wire->write(0);
-    _wire->write(0);
+    _wire->write((uint8_t)0);
+    _wire->write((uint8_t)0);
     _wire->endTransmission();
   }
 
   if (remain) {
     delay(_wait_delay);
     _wire->beginTransmission(__address);
-    _wire->write(FEATURE_TRANSPORT);
-    _wire->write(FEATURE_TRANSPORT_CMD_WRITE);
-    _wire->write(remain >> 8);
-    _wire->write(remain & 0xFF);
+    _wire->write((uint8_t)FEATURE_TRANSPORT);
+    _wire->write((uint8_t)FEATURE_TRANSPORT_CMD_WRITE);
+    _wire->write((uint8_t)(remain >> 8));
+    _wire->write((uint8_t)(remain & 0xFF));
     _wire->write((const uint8_t *)(data + packets * MAX_PL_LEN), remain);
-    _wire->write(0);
-    _wire->write(0);
+    _wire->write((uint8_t)0);
+    _wire->write((uint8_t)0);
     _wire->endTransmission();
   }
 
@@ -629,7 +707,7 @@ bool DFRobot_HumanPose_UART::begin(void)
 bool DFRobot_HumanPose_UART::setBaud(eBaudConfig_t baud)
 {
   char cmd[64] = { 0 };
-  snprintf(cmd, sizeof(cmd), CMD_PRE "%s=%d" CMD_SUF, AT_BAUD, baud);
+  snprintf(cmd, sizeof(cmd), CMD_PRE "%s=%d" CMD_SUF, AT_BAUD, (int)baud);
   write(cmd, strlen(cmd));
 
   if (wait(CMD_TYPE_RESPONSE, AT_BAUD) == eOK) {
