@@ -19,7 +19,8 @@ HumanPose is a sensor capable of human pose detection, hand detection, and learn
 
 ## Summary
 
-Provide a Python library to control the Human Pose sensor on Raspberry Pi. Supports I2C and UART communication, human pose detection (17 keypoints), hand detection (21 keypoints), and learned target / gesture recognition.
+Provide a Python library to control the Human Pose sensor on Raspberry Pi. Supports I2C and UART communication, human pose detection (17 keypoints), hand detection (21 keypoints), and learned target / gesture recognition.  
+The driver uses binary transport protocol by default (`TPROTO=1`) and supports keypoint output switch (`TKPTS`).
 
 ## Installation
 
@@ -61,7 +62,7 @@ python get_hand_result.py
 
     def begin(self):
         '''
-          @brief Initialize the sensor and verify device name
+          @brief Initialize the sensor in binary mode and verify device name
           @return True: Initialization succeeded, False: Initialization failed
         '''
 
@@ -121,7 +122,20 @@ python get_hand_result.py
         '''
           @brief Get the list of learned target names for the given model
           @param model: MODEL_POSE or MODEL_HAND
-          @return List of names on success, None on timeout
+          @return List of names; returns [] on timeout
+        '''
+
+    def set_keypoint_output(self, enable):
+        '''
+          @brief Configure whether INVOKE output includes keypoints
+          @param enable: True include keypoints, False boxes only
+          @return CODE_OK: Success, CODE_TIMEOUT: Timeout
+        '''
+
+    def get_keypoint_output(self):
+        '''
+          @brief Get whether INVOKE output includes keypoints
+          @return 1/0 on success, None on timeout
         '''
 
     def available_result(self):

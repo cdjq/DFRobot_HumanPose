@@ -20,7 +20,7 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
 ## Installation
 
 1. To use this library, first download the library file, paste it into the `\Arduino\libraries` directory, then open the example folder and run the examples in it.
-2. To use this library, you also need to download the dependency: https://github.com/bblanchon/ArduinoJson
+2. This library is binary-protocol only and does not require ArduinoJson.
 
 ## Methods
 ```c++
@@ -149,6 +149,7 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
      * @brief Get and pop the next detection result
      * @return Pointer to Result object. Returns NULL if no results are available.
      * @note The Result object may be of type PoseResult or HandResult, depending on the currently set model type.
+     *       On low-memory boards (`DFR_HUMANPOSE_LOW_MEMORY=1`), box-only output is used and popResult() returns Result base objects.
      *       After use, the result will be marked as used.
      */
     Result *popResult();
@@ -182,7 +183,7 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
     uint16_t width;        // Bounding box width
     uint16_t height;       // Bounding box height
     /**
-     * @brief Score of the result (0–100).
+     * @brief Score of the result (0-100).
      *
      * Meaning depends on `id`:
      * - if `id == 0`: `score` is the detection confidence (probability/quality of detection).

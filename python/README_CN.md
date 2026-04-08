@@ -121,7 +121,7 @@ python get_hand_result.py
         '''
           @brief 获取指定模型的已学习目标名称列表
           @param model: MODEL_POSE 或 MODEL_HAND
-          @return 成功返回名称列表，超时返回 None
+          @return 返回名称列表，超时返回 []
         '''
 
     def available_result(self):

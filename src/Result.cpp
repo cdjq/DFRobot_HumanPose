@@ -1,96 +1,151 @@
 /*!
- *@file Result.cpp
- *@brief Implementation of Result, PoseResult, HandResult (JSON parsing and keypoint mapping).
- *@details This module parses sensor JSON output into Result/PoseResult/HandResult structures.
- *@copyright   Copyright (c) 2026 DFRobot Co.Ltd (http://www.dfrobot.com)
- *@License     The MIT License (MIT)
- *@author [thdyyl](yuanlong.yu@dfrobot.com)
- *@version  V1.0
- *@date  2026-02-04
- *@url         https://github.com/DFRobot/DFRobot_HumanPose
+ * @file Result.cpp
+ * @brief Implementation of Result, PoseResult, HandResult (binary result mapping).
+ * @details This module maps binary protocol output into Result/PoseResult/HandResult structures.
+ * @copyright   Copyright (c) 2026 DFRobot Co.Ltd (http://www.dfrobot.com)
+ * @License     The MIT License (MIT)
+ * @author [thdyyl](yuanlong.yu@dfrobot.com)
+ * @version  V1.0
+ * @date  2026-02-04
+ * @url         https://github.com/DFRobot/DFRobot_HumanPose
 */
 
 #include "Result.h"
 
-static bool readPointU16(const JsonArray& points, size_t i, PointU16& out)
+Result::Result(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint8_t scoreValue, uint8_t targetId, const String &targetName)
 {
-  if (i >= points.size())
-    return false;
-
-  JsonArray p = points[i].as<JsonArray>();
-  if (p.size() < 2)
-    return false;
-
-  out.x = p[0].as<uint16_t>();
-  out.y = p[1].as<uint16_t>();
-  return true;
-}
-
-Result::Result(JsonArray data, JsonArrayConst names)
-{
-  used          = false;
-  JsonArray box = data[0].as<JsonArray>();
-  xLeft         = box[0] | 0;
-  yTop          = box[1] | 0;
-  width         = box[2] | 0;
-  height        = box[3] | 0;
-  score         = box[4] | 0;
-  id            = box[5] | 0;
-  name          = "unknown";
-  if (id != 0) {
-    JsonObjectConst ob = names[id - 1];
-    name = name = ob["name"] | "unknown";
-  }
+  used   = false;
+  xLeft  = x;
+  yTop   = y;
+  width  = w;
+  height = h;
+  score  = scoreValue;
+  id     = targetId;
+  name   = targetName;
 }
 
 Result::~Result() {}
 
-PoseResult::PoseResult(JsonArray data, JsonArrayConst names) : Result(data, names)
+PoseResult::PoseResult(uint16_t x,
+                       uint16_t y,
+                       uint16_t w,
+                       uint16_t h,
+                       uint8_t  scoreValue,
+                       uint8_t  targetId,
+                       const PointU16 *points,
+                       size_t pointCount,
+                       const String &targetName) :
+  Result(x, y, w, h, scoreValue, targetId, targetName)
 {
-  JsonArray points = data[1].as<JsonArray>();
-  readPointU16(points, 0, nose);
-  readPointU16(points, 1, leye);
-  readPointU16(points, 2, reye);
-  readPointU16(points, 3, lear);
-  readPointU16(points, 4, rear);
-  readPointU16(points, 5, lshoulder);
-  readPointU16(points, 6, rshoulder);
-  readPointU16(points, 7, lelbow);
-  readPointU16(points, 8, relbow);
-  readPointU16(points, 9, lwrist);
-  readPointU16(points, 10, rwrist);
-  readPointU16(points, 11, lhip);
-  readPointU16(points, 12, rhip);
-  readPointU16(points, 13, lknee);
-  readPointU16(points, 14, rknee);
-  readPointU16(points, 15, lankle);
-  readPointU16(points, 16, rankle);
+  const PointU16 zero = PointU16{};
+  nose = leye = reye = lear = rear = zero;
+  lshoulder = rshoulder = lelbow = relbow = zero;
+  lwrist = rwrist = lhip = rhip = zero;
+  lknee = rknee = lankle = rankle = zero;
+
+  if (!points) {
+    return;
+  }
+
+  if (pointCount > 0)
+    nose = points[0];
+  if (pointCount > 1)
+    leye = points[1];
+  if (pointCount > 2)
+    reye = points[2];
+  if (pointCount > 3)
+    lear = points[3];
+  if (pointCount > 4)
+    rear = points[4];
+  if (pointCount > 5)
+    lshoulder = points[5];
+  if (pointCount > 6)
+    rshoulder = points[6];
+  if (pointCount > 7)
+    lelbow = points[7];
+  if (pointCount > 8)
+    relbow = points[8];
+  if (pointCount > 9)
+    lwrist = points[9];
+  if (pointCount > 10)
+    rwrist = points[10];
+  if (pointCount > 11)
+    lhip = points[11];
+  if (pointCount > 12)
+    rhip = points[12];
+  if (pointCount > 13)
+    lknee = points[13];
+  if (pointCount > 14)
+    rknee = points[14];
+  if (pointCount > 15)
+    lankle = points[15];
+  if (pointCount > 16)
+    rankle = points[16];
 }
 
-HandResult::HandResult(JsonArray data, JsonArrayConst names) : Result(data, names)
+HandResult::HandResult(uint16_t x,
+                       uint16_t y,
+                       uint16_t w,
+                       uint16_t h,
+                       uint8_t  scoreValue,
+                       uint8_t  targetId,
+                       const PointU16 *points,
+                       size_t pointCount,
+                       const String &targetName) :
+  Result(x, y, w, h, scoreValue, targetId, targetName)
 {
-  JsonArray points = data[1].as<JsonArray>();
+  const PointU16 zero = PointU16{};
+  wrist = thumbCmc = thumbMcp = thumbIp = thumbTip = zero;
+  indexFingerMcp = indexFingerPip = indexFingerDip = indexFingerTip = zero;
+  middleFingerMcp = middleFingerPip = middleFingerDip = middleFingerTip = zero;
+  ringFingerMcp = ringFingerPip = ringFingerDip = ringFingerTip = zero;
+  pinkyFingerMcp = pinkyFingerPip = pinkyFingerDip = pinkyFingerTip = zero;
 
-  LDBG(points.size());
-  readPointU16(points, 0, wrist);
-  readPointU16(points, 1, thumbCmc);
-  readPointU16(points, 2, thumbMcp);
-  readPointU16(points, 3, thumbIp);
-  readPointU16(points, 4, thumbTip);
-  readPointU16(points, 5, indexFingerMcp);
-  readPointU16(points, 6, indexFingerPip);
-  readPointU16(points, 7, indexFingerDip);
-  readPointU16(points, 8, indexFingerTip);
-  readPointU16(points, 9, middleFingerMcp);
-  readPointU16(points, 10, middleFingerPip);
-  readPointU16(points, 11, middleFingerDip);
-  readPointU16(points, 12, middleFingerTip);
-  readPointU16(points, 13, ringFingerMcp);
-  readPointU16(points, 14, ringFingerPip);
-  readPointU16(points, 15, ringFingerDip);
-  readPointU16(points, 16, ringFingerTip);
-  readPointU16(points, 17, pinkyFingerMcp);
-  readPointU16(points, 18, pinkyFingerPip);
-  readPointU16(points, 19, pinkyFingerDip);
-  readPointU16(points, 20, pinkyFingerTip);
+  if (!points) {
+    return;
+  }
+
+  if (pointCount > 0)
+    wrist = points[0];
+  if (pointCount > 1)
+    thumbCmc = points[1];
+  if (pointCount > 2)
+    thumbMcp = points[2];
+  if (pointCount > 3)
+    thumbIp = points[3];
+  if (pointCount > 4)
+    thumbTip = points[4];
+  if (pointCount > 5)
+    indexFingerMcp = points[5];
+  if (pointCount > 6)
+    indexFingerPip = points[6];
+  if (pointCount > 7)
+    indexFingerDip = points[7];
+  if (pointCount > 8)
+    indexFingerTip = points[8];
+  if (pointCount > 9)
+    middleFingerMcp = points[9];
+  if (pointCount > 10)
+    middleFingerPip = points[10];
+  if (pointCount > 11)
+    middleFingerDip = points[11];
+  if (pointCount > 12)
+    middleFingerTip = points[12];
+  if (pointCount > 13)
+    ringFingerMcp = points[13];
+  if (pointCount > 14)
+    ringFingerPip = points[14];
+  if (pointCount > 15)
+    ringFingerDip = points[15];
+  if (pointCount > 16)
+    ringFingerTip = points[16];
+  if (pointCount > 17)
+    pinkyFingerMcp = points[17];
+  if (pointCount > 18)
+    pinkyFingerPip = points[18];
+  if (pointCount > 19)
+    pinkyFingerDip = points[19];
+  if (pointCount > 20)
+    pinkyFingerTip = points[20];
 }
+

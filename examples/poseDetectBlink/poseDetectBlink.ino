@@ -1,13 +1,14 @@
-/**
+/*!
  * @file poseDetectBlink.ino
  * @brief Pose detect blink example
  * @details This example demonstrates how to detect pose and turn on LED indicator when pose is detected
- * @copyright Copyright (c) 2026 DFRobot Co.Ltd (http://www.dfrobot.com)
- * @license The MIT License (MIT)
- * @author DFRobot
- * @version V1.0.0
- * @date 2026-01-09
- */
+ * @copyright   Copyright (c) 2026 DFRobot Co.Ltd (http://www.dfrobot.com)
+ * @License     The MIT License (MIT)
+ * @author [thdyyl](yuanlong.yu@dfrobot.com)
+ * @version  V1.0.0
+ * @date  2026-01-09
+ * @url         https://github.com/DFRobot/DFRobot_HumanPose
+*/
 
 #include <DFRobot_HumanPose.h>
 
@@ -64,13 +65,16 @@ void setup()
 
   // Set detection model: eHand (hand detection) or ePose (human pose detection)
   humanPose.setModelType(DFRobot_HumanPose::eHand);
+#if DFR_HUMANPOSE_LOW_MEMORY
+  humanPose.setKeypointOutput(false);
+#endif
 
   // Configure detection threshold parameters
   humanPose.setIOU(45);                // Set IOU threshold (0-100), used for non-maximum suppression, default is typically 45
   humanPose.setConfidence(80);         // Set detection confidence threshold (0-100), default is typically 60
   humanPose.setLearnSimilarity(60);    // Set similarity threshold (0-100), used for matching learned targets, default is typically 60
 
-  uint8_t iou, score, similarity;
+  uint8_t iou=0, score=0, similarity=0;
   humanPose.getIOU(&iou);
   humanPose.getConfidence(&score);
   humanPose.getLearnSimilarity(&similarity);
@@ -108,7 +112,14 @@ void loop()
   if (humanPose.getResult() == DFRobot_HumanPose::eOK) {
     // Iterate through all detected targets
     while (humanPose.availableResult()) {
+#if DFR_HUMANPOSE_LOW_MEMORY
+      Result *result = humanPose.popResult();
+#else
       HandResult *result = static_cast<HandResult *>(humanPose.popResult());
+#endif
+      if (!result) {
+        continue;
+      }
       if (result->id != 0) {
         Serial.print("ID: ");
         Serial.println(result->id);

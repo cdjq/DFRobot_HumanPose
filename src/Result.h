@@ -1,43 +1,22 @@
 /*!
- *@file Result.h
- *@brief Define the basic structure of Result, PoseResult, HandResult and PointU16.
- *@details This module defines detection result data: bounding box, score, id, name, and keypoints (pose 17 points, hand 21 points).
- *@copyright   Copyright (c) 2026 DFRobot Co.Ltd (http://www.dfrobot.com)
- *@License     The MIT License (MIT)
- *@author [thdyyl](yuanlong.yu@dfrobot.com)
- *@version  V1.0
- *@date  2026-02-04
- *@url         https://github.com/DFRobot/DFRobot_HumanPose
+ * @file Result.h
+ * @brief Define the basic structure of Result, PoseResult, HandResult and PointU16.
+ * @details This module defines detection result data: bounding box, score, id, name, and keypoints (pose 17 points, hand 21 points).
+ * @copyright   Copyright (c) 2026 DFRobot Co.Ltd (http://www.dfrobot.com)
+ * @License     The MIT License (MIT)
+ * @author [thdyyl](yuanlong.yu@dfrobot.com)
+ * @version  V1.0
+ * @date  2026-02-04
+ * @url         https://github.com/DFRobot/DFRobot_HumanPose
 */
 #ifndef DFROBOT_HUMAN_RESULT
 #define DFROBOT_HUMAN_RESULT
 #include <Arduino.h>
 
-/* Must match DFRobot_HumanPose.h - same ArduinoJson config for all TUs to avoid ABI mismatch. */
-#ifdef min
-#undef min
-#endif
-#ifdef max
-#undef max
-#endif
-#if defined(ARDUINO_BBC_MICROBIT) || defined(ARDUINO_BBC_MICROBIT_V2) || defined(ARDUINO_AVR_LEONARDO) || defined(ARDUINO_AVR_UNO) || (defined(ARDUINO_ARCH_AVR) && !defined(ARDUINO_AVR_MEGA2560) && !defined(ARDUINO_AVR_MEGA)) || defined(ARDUINO_ARCH_NRF5)
-#define ARDUINOJSON_ENABLE_STD_STRING     0
-#define ARDUINOJSON_ENABLE_ARDUINO_STRING 0
-#define ARDUINOJSON_ENABLE_ARDUINO_STREAM 0
-#define ARDUINOJSON_ENABLE_STD_STREAM     0
-#define ARDUINOJSON_DECODE_UNICODE        0
-#define ARDUINOJSON_ENABLE_COMMENTS       0
-#define ARDUINOJSON_ENABLE_NAN            0
-#define ARDUINOJSON_ENABLE_INFINITY       0
-#define ARDUINOJSON_USE_LONG_LONG         0
-#define ARDUINOJSON_USE_DOUBLE            0
-#endif
-
-#include <ArduinoJson.h>
-
 struct PointU16 {
   uint16_t x{}, y{};
 };
+#ifndef LDBG
 // #define ENABLE_DBG
 #ifdef ENABLE_DBG
 #define LDBG(...)                \
@@ -52,9 +31,10 @@ struct PointU16 {
 #else
 #define LDBG(...)
 #endif
+#endif
 class Result {
 public:
-  Result(JsonArray data, JsonArrayConst names);
+  Result(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint8_t scoreValue, uint8_t targetId, const String &targetName = "unknown");
   ~Result();
 
 public:
@@ -70,7 +50,15 @@ public:
 
 class PoseResult : public Result {
 public:
-  PoseResult(JsonArray data, JsonArrayConst names);
+  PoseResult(uint16_t x,
+             uint16_t y,
+             uint16_t w,
+             uint16_t h,
+             uint8_t  scoreValue,
+             uint8_t  targetId,
+             const PointU16 *points,
+             size_t pointCount,
+             const String &targetName = "unknown");
 
 public:
   PointU16 nose;
@@ -98,7 +86,15 @@ public:
 
 class HandResult : public Result {
 public:
-  HandResult(JsonArray data, JsonArrayConst names);
+  HandResult(uint16_t x,
+             uint16_t y,
+             uint16_t w,
+             uint16_t h,
+             uint8_t  scoreValue,
+             uint8_t  targetId,
+             const PointU16 *points,
+             size_t pointCount,
+             const String &targetName = "unknown");
 
 public:
   PointU16 wrist;
@@ -129,3 +125,4 @@ public:
 };
 
 #endif
+

@@ -1,16 +1,17 @@
-/**
+/*!
  * @file wakeup.ino
  * @brief Wakeup pin control example
  * @details This example demonstrates how to control the HumanPose sensor wakeup (enable) pin
  *          using a digital GPIO. LOW level = power off, HIGH level = power on.
  *          After powering on the sensor, you can run other examples (getPoseResult / getHandResult)
  *          to get detection results.
- * @copyright Copyright (c) 2026 DFRobot Co.Ltd (http://www.dfrobot.com)
- * @license The MIT License (MIT)
- * @author DFRobot
- * @version V1.0.0
- * @date 2026-02-04
- */
+ * @copyright   Copyright (c) 2026 DFRobot Co.Ltd (http://www.dfrobot.com)
+ * @License     The MIT License (MIT)
+ * @author [thdyyl](yuanlong.yu@dfrobot.com)
+ * @version  V1.0.0
+ * @date  2026-02-04
+ * @url         https://github.com/DFRobot/DFRobot_HumanPose
+*/
 
 #include <Arduino.h>
 

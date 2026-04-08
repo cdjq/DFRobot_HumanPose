@@ -12,7 +12,6 @@
 
 from pinpong.board import I2C, gboard, UART
 import time
-import json
 import logging
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any, Union
@@ -253,6 +252,7 @@ class DFRobot_HumanPose(object):
 
   I2C_ADDRESS = 0x3A
   MAX_PL_LEN = 250
+  MAX_RESULT_NUM = 16
   HUMANPOSE_NAME = "DFRobot Human Pose"
 
   TRANSPORT = 0x10
@@ -265,7 +265,7 @@ class DFRobot_HumanPose(object):
   CMD_TYPE_EVENT = 1
   CMD_TYPE_LOG = 2
 
-  AT_NAME = "NAME?"
+  AT_NAME = "NAME"
   AT_INVOKE = "INVOKE"
   AT_TSCORE = "TSCORE"
   AT_TIOU = "TIOU"
@@ -276,10 +276,58 @@ class DFRobot_HumanPose(object):
   AT_BAUD = "BAUDRATE"
   AT_POSELIST = "POSELIST?"
   AT_HANDLIST = "HANDLIST?"
+  AT_TPROTO = "TPROTO"
+  AT_TPKTSZ = "TPKTSZ"
+  AT_TKPTS = "TKPTS"
+
+  # Binary protocol constants
+  HP_BIN_SOF0 = 0x55
+  HP_BIN_SOF1 = 0xAA
+  HP_BIN_MSG_AT_RSP = 0x11
+  HP_BIN_MSG_INVOKE_META = 0x00
+  HP_BIN_MSG_INVOKE_BEGIN = 0x01
+  HP_BIN_MSG_DET_CHUNK = 0x03
+  HP_BIN_MSG_HAND_KP_CHUNK = 0x04
+  HP_BIN_MSG_POSE_KP_CHUNK = 0x05
+  HP_BIN_MSG_INVOKE_END = 0x07
+  HP_BIN_HDR_LEN = 11
+
+  # Binary command id
+  CMD_ID_NAME = 0x0003
+  CMD_ID_INVOKE = 0x0017
+  CMD_ID_MODEL_SET = 0x000B
+  CMD_ID_MODEL_GET = 0x000C
+  CMD_ID_POSELIST = 0x0029
+  CMD_ID_HANDLIST = 0x0030
+  CMD_ID_TPROTO_SET = 0x001F
+  CMD_ID_TPROTO_GET = 0x0020
+  CMD_ID_TPKTSZ_SET = 0x0021
+  CMD_ID_TPKTSZ_GET = 0x0022
+  CMD_ID_TKPTS_SET = 0x0037
+  CMD_ID_TKPTS_GET = 0x0038
+  CMD_ID_TSCORE_SET = 0x0101
+  CMD_ID_TSCORE_GET = 0x0102
+  CMD_ID_TIOU_SET = 0x0103
+  CMD_ID_TIOU_GET = 0x0104
+  CMD_ID_TSIM_SET = 0x0105
+  CMD_ID_TSIM_GET = 0x0106
+  CMD_ID_BAUD_SET = 0x001D
+  CMD_ID_BAUD_GET = 0x001E
+
+  # Binary value types
+  HP_BIN_NULL = 0x00
+  HP_BIN_BOOL = 0x01
+  HP_BIN_I64 = 0x02
+  HP_BIN_U64 = 0x03
+  HP_BIN_F64 = 0x04
+  HP_BIN_STRING = 0x05
+  HP_BIN_OBJECT = 0x06
+  HP_BIN_ARRAY = 0x07
+  HP_BIN_BYTES = 0x08
 
   CODE_OK = 0
   CODE_AGAIN = 1
-  CODE_LGO = 2
+  CODE_LOG = 2
   CODE_TIMEOUT = 3
   CODE_IO = 4
   CODE_INVAL = 5
@@ -295,16 +343,496 @@ class DFRobot_HumanPose(object):
   _cmd_available = [0x10, 0x03, 0, 0, 0, 0]
 
   def __init__(self):
-    _wait_delay = 2
+    self._wait_delay = 2
     self._rx_buf = bytearray()
+    self._at_payload_buf = bytearray()
     self._results = []
+    self._learn_list = []
+    self._pose_class_list = []
+    self._hand_class_list = []
     self._name = ""
     self._ret_data = None
+    self._binary_mode = False
+    self._current_model = self.MODEL_HAND
 
-    # super.__init__()
+    self._at_rsp_ready = False
+    self._at_rsp_type = self.CMD_TYPE_RESPONSE
+    self._at_rsp_code = 0
+    self._at_rsp_cmd_id = 0
+    self._at_rsp_name = ""
+
+    self._invoke_event_ready = False
+    self._invoke_event_code = 0
+    self._invoke_model_id = 0
+
+    self._bin_result_count = 0
+    self._bin_results = [self._new_bin_result() for _ in range(self.MAX_RESULT_NUM)]
+
+  @staticmethod
+  def _read_u16_le(buf: bytes, off: int = 0) -> int:
+    return int(buf[off]) | (int(buf[off + 1]) << 8)
+
+  @staticmethod
+  def _read_i16_le(buf: bytes, off: int = 0) -> int:
+    return int.from_bytes(buf[off:off + 2], byteorder="little", signed=True)
+
+  @staticmethod
+  def _read_u32_le(buf: bytes, off: int = 0) -> int:
+    return int.from_bytes(buf[off:off + 4], byteorder="little", signed=False)
+
+  @staticmethod
+  def _crc16_ccitt_update(crc: int, data: bytes) -> int:
+    for b in data:
+      crc ^= (b << 8)
+      for _ in range(8):
+        if crc & 0x8000:
+          crc = ((crc << 1) ^ 0x1021) & 0xFFFF
+        else:
+          crc = (crc << 1) & 0xFFFF
+    return crc & 0xFFFF
+
+  @staticmethod
+  def _new_bin_result() -> Dict[str, Any]:
+    return {
+      "used": False,
+      "is_pose": False,
+      "x": 0,
+      "y": 0,
+      "w": 0,
+      "h": 0,
+      "score": 0,
+      "target": 0,
+      "points": [PointU16() for _ in range(21)],
+      "point_valid": [0] * 21,
+    }
+
+  def _clear_binary_results(self):
+    self._bin_result_count = 0
+    self._invoke_model_id = 0
+    for i in range(self.MAX_RESULT_NUM):
+      self._bin_results[i] = self._new_bin_result()
+
+  def _resolve_class_name(self, cls_id: int) -> str:
+    if cls_id == 0:
+      return "unknown"
+    names = self._pose_class_list if self._current_model == self.MODEL_POSE else self._hand_class_list
+    if 1 <= cls_id <= len(names):
+      return str(names[cls_id - 1])
+    return f"class_{cls_id}"
+
+  def _command_matches(self, cmd_id: int, cmd: str) -> bool:
+    if not cmd:
+      return False
+
+    if cmd_id != 0:
+      c = cmd
+      if self.AT_INVOKE in c:
+        return cmd_id == self.CMD_ID_INVOKE
+      if self.AT_NAME in c or self.AT_NAME + "?" in c:
+        return cmd_id == self.CMD_ID_NAME
+      if self.AT_MODEL in c:
+        return cmd_id in (self.CMD_ID_MODEL_SET, self.CMD_ID_MODEL_GET)
+      if self.AT_TSCORE in c:
+        return cmd_id in (self.CMD_ID_TSCORE_SET, self.CMD_ID_TSCORE_GET)
+      if self.AT_TIOU in c:
+        return cmd_id in (self.CMD_ID_TIOU_SET, self.CMD_ID_TIOU_GET)
+      if self.AT_TSIMILARITY in c:
+        return cmd_id in (self.CMD_ID_TSIM_SET, self.CMD_ID_TSIM_GET)
+      if self.AT_POSELIST in c:
+        return cmd_id == self.CMD_ID_POSELIST
+      if self.AT_HANDLIST in c:
+        return cmd_id == self.CMD_ID_HANDLIST
+      if self.AT_BAUD in c:
+        return cmd_id in (self.CMD_ID_BAUD_SET, self.CMD_ID_BAUD_GET)
+      if self.AT_TPROTO in c:
+        return cmd_id in (self.CMD_ID_TPROTO_SET, self.CMD_ID_TPROTO_GET)
+      if self.AT_TPKTSZ in c:
+        return cmd_id in (self.CMD_ID_TPKTSZ_SET, self.CMD_ID_TPKTSZ_GET)
+      if self.AT_TKPTS in c:
+        return cmd_id in (self.CMD_ID_TKPTS_SET, self.CMD_ID_TKPTS_GET)
+      return False
+
+    if not self._at_rsp_name:
+      return False
+    return self._at_rsp_name == cmd or self._at_rsp_name.startswith(cmd)
+
+  def _parse_bin_value(self, data: bytes, offset: int):
+    if offset + 8 > len(data):
+      return None, offset
+    v_type = int(data[offset + 0])
+    v_flags = int(data[offset + 1])
+    v_len = self._read_u32_le(data, offset + 4)
+    offset += 8
+    if offset + v_len > len(data):
+      return None, offset
+    body = data[offset:offset + v_len]
+    offset += v_len
+    return {"type": v_type, "flags": v_flags, "length": v_len, "body": body}, offset
+
+  def _bin_to_uint8(self, v) -> Optional[int]:
+    if not v:
+      return None
+    t = v["type"]
+    body = v["body"]
+    length = v["length"]
+    if t == self.HP_BIN_U64 and length >= 8:
+      n = int.from_bytes(body[:8], byteorder="little", signed=False)
+      return min(n, 255)
+    if t == self.HP_BIN_I64 and length >= 8:
+      n = int.from_bytes(body[:8], byteorder="little", signed=True)
+      if n < 0:
+        n = 0
+      if n > 255:
+        n = 255
+      return n
+    if t == self.HP_BIN_BOOL:
+      return 1 if v["flags"] else 0
+    return None
+
+  def _bin_to_string(self, v) -> Optional[str]:
+    if not v or v["type"] != self.HP_BIN_STRING:
+      return None
+    return bytes(v["body"]).decode("utf-8", errors="ignore")
+
+  def _bin_object_get(self, obj_v, key: str):
+    if not obj_v or obj_v["type"] != self.HP_BIN_OBJECT:
+      return None
+    body = obj_v["body"]
+    if len(body) < 2:
+      return None
+    count = self._read_u16_le(body, 0)
+    cursor = 2
+    key_bytes = key.encode("utf-8")
+    for _ in range(count):
+      if cursor + 2 > len(body):
+        return None
+      key_len = self._read_u16_le(body, cursor)
+      cursor += 2
+      if cursor + key_len > len(body):
+        return None
+      cur_key = body[cursor:cursor + key_len]
+      cursor += key_len
+      value, new_cursor = self._parse_bin_value(body, cursor)
+      if value is None:
+        return None
+      cursor = new_cursor
+      if cur_key == key_bytes:
+        return value
+    return None
+
+  def _bin_array_to_string_list(self, arr_v) -> List[str]:
+    out: List[str] = []
+    if not arr_v or arr_v["type"] != self.HP_BIN_ARRAY:
+      return out
+    body = arr_v["body"]
+    if len(body) < 2:
+      return out
+    count = self._read_u16_le(body, 0)
+    cursor = 2
+    for _ in range(count):
+      v, cursor = self._parse_bin_value(body, cursor)
+      if not v:
+        break
+      if v["type"] == self.HP_BIN_STRING:
+        out.append(bytes(v["body"]).decode("utf-8", errors="ignore"))
+    return out
+
+  def _process_binary_at_response(self, flags: int, payload: bytes):
+    self._at_payload_buf.extend(payload)
+    if (flags & 0x01) == 0:
+      return True
+
+    p = bytes(self._at_payload_buf)
+    self._at_payload_buf.clear()
+    if len(p) < 12:
+      return False
+
+    rsp_type = int.from_bytes(p[1:2], byteorder="little", signed=True)
+    rsp_code = self._read_i16_le(p, 2)
+    rsp_cmd_id = self._read_u16_le(p, 4)
+    data_len = self._read_u32_le(p, 8)
+
+    if 12 + data_len <= len(p) and data_len >= 8:
+      data_ptr = p[12:12 + data_len]
+      root, _ = self._parse_bin_value(data_ptr, 0)
+      if root:
+        if rsp_cmd_id == self.CMD_ID_NAME:
+          s = self._bin_to_string(root)
+          if s is not None:
+            self._name = s
+        elif rsp_cmd_id in (
+          self.CMD_ID_TSCORE_GET, self.CMD_ID_TSCORE_SET,
+          self.CMD_ID_TIOU_GET, self.CMD_ID_TIOU_SET,
+          self.CMD_ID_TSIM_GET, self.CMD_ID_TSIM_SET,
+          self.CMD_ID_TKPTS_GET, self.CMD_ID_TKPTS_SET,
+        ):
+          v = self._bin_to_uint8(root)
+          if v is not None:
+            self._ret_data = v
+        elif rsp_cmd_id in (self.CMD_ID_MODEL_GET, self.CMD_ID_MODEL_SET):
+          v = None
+          if root["type"] == self.HP_BIN_OBJECT:
+            id_value = self._bin_object_get(root, "id")
+            v = self._bin_to_uint8(id_value)
+          if v is None:
+            v = self._bin_to_uint8(root)
+          if v is not None:
+            self._ret_data = v
+            if v in (self.MODEL_HAND, self.MODEL_POSE):
+              self._current_model = v
+        elif rsp_cmd_id in (self.CMD_ID_HANDLIST, self.CMD_ID_POSELIST):
+          parsed = self._bin_array_to_string_list(root)
+          self._learn_list = parsed
+          if rsp_cmd_id == self.CMD_ID_HANDLIST:
+            self._hand_class_list = parsed
+          else:
+            self._pose_class_list = parsed
+
+    if rsp_type == self.CMD_TYPE_RESPONSE:
+      if not self._at_rsp_ready:
+        self._at_rsp_type = rsp_type
+        self._at_rsp_code = rsp_code
+        self._at_rsp_cmd_id = rsp_cmd_id
+        self._at_rsp_name = ""
+        self._at_rsp_ready = True
+    elif rsp_type == self.CMD_TYPE_EVENT and rsp_cmd_id == self.CMD_ID_INVOKE:
+      self._invoke_event_code = rsp_code
+      self._invoke_event_ready = True
+    return True
+
+  def _finalize_binary_results(self):
+    new_results = []
+    count = min(self._bin_result_count, self.MAX_RESULT_NUM)
+    for i in range(count):
+      b = self._bin_results[i]
+      if not b["used"]:
+        continue
+
+      name = self._resolve_class_name(int(b["target"]))
+      target_id = int(b["target"]) & 0xFF
+
+      if b["is_pose"]:
+        r = PoseResult()
+        r.nose = b["points"][0]
+        r.leye = b["points"][1]
+        r.reye = b["points"][2]
+        r.lear = b["points"][3]
+        r.rear = b["points"][4]
+        r.lshoulder = b["points"][5]
+        r.rshoulder = b["points"][6]
+        r.lelbow = b["points"][7]
+        r.relbow = b["points"][8]
+        r.lwrist = b["points"][9]
+        r.rwrist = b["points"][10]
+        r.lhip = b["points"][11]
+        r.rhip = b["points"][12]
+        r.lknee = b["points"][13]
+        r.rknee = b["points"][14]
+        r.lankle = b["points"][15]
+        r.rankle = b["points"][16]
+      else:
+        r = HandResult()
+        r.wrist = b["points"][0]
+        r.thumbCmc = b["points"][1]
+        r.thumbMcp = b["points"][2]
+        r.thumbIp = b["points"][3]
+        r.thumbTip = b["points"][4]
+        r.indexFingerMcp = b["points"][5]
+        r.indexFingerPip = b["points"][6]
+        r.indexFingerDip = b["points"][7]
+        r.indexFingerTip = b["points"][8]
+        r.middleFingerMcp = b["points"][9]
+        r.middleFingerPip = b["points"][10]
+        r.middleFingerDip = b["points"][11]
+        r.middleFingerTip = b["points"][12]
+        r.ringFingerMcp = b["points"][13]
+        r.ringFingerPip = b["points"][14]
+        r.ringFingerDip = b["points"][15]
+        r.ringFingerTip = b["points"][16]
+        r.pinkyFingerMcp = b["points"][17]
+        r.pinkyFingerPip = b["points"][18]
+        r.pinkyFingerDip = b["points"][19]
+        r.pinkyFingerTip = b["points"][20]
+
+      r.xLeft = int(b["x"]) & 0xFFFF
+      r.yTop = int(b["y"]) & 0xFFFF
+      r.width = int(b["w"]) & 0xFFFF
+      r.height = int(b["h"]) & 0xFFFF
+      r.score = int(b["score"]) & 0xFF
+      r.id = target_id
+      r.name = name
+      r.used = False
+      new_results.append(r)
+    self._results = new_results
+
+  def _process_binary_invoke(self, msg_type: int, flags: int, payload: bytes):
+    _ = flags
+    if msg_type == self.HP_BIN_MSG_INVOKE_META:
+      ret_code = self._read_i16_le(payload, 0) if len(payload) >= 2 else 0
+      if len(payload) >= 4:
+        model_id = self._read_u16_le(payload, 2)
+        if model_id in (self.MODEL_HAND, self.MODEL_POSE):
+          self._current_model = model_id
+
+      if not self._at_rsp_ready:
+        self._at_rsp_type = self.CMD_TYPE_RESPONSE
+        self._at_rsp_cmd_id = self.CMD_ID_INVOKE
+        self._at_rsp_code = ret_code
+        self._at_rsp_name = ""
+        self._at_rsp_ready = True
+      return True
+
+    if msg_type == self.HP_BIN_MSG_INVOKE_BEGIN:
+      self._clear_binary_results()
+      if len(payload) >= 12:
+        self._invoke_model_id = self._read_u16_le(payload, 10)
+        if self._invoke_model_id in (self.MODEL_HAND, self.MODEL_POSE):
+          self._current_model = self._invoke_model_id
+      return True
+
+    if msg_type == self.HP_BIN_MSG_DET_CHUNK:
+      if len(payload) < 6:
+        return False
+      total_boxes = self._read_u16_le(payload, 0)
+      offset = self._read_u16_le(payload, 2)
+      item_count = payload[4]
+      item_size = payload[5]
+      if item_size != 11:
+        return False
+      self._bin_result_count = total_boxes
+      cursor = 6
+      for i in range(item_count):
+        if cursor + 11 > len(payload):
+          break
+        idx = offset + i
+        if idx < self.MAX_RESULT_NUM:
+          b = self._bin_results[idx]
+          b["used"] = True
+          b["is_pose"] = (self._current_model == self.MODEL_POSE)
+          b["x"] = self._read_u16_le(payload, cursor + 0)
+          b["y"] = self._read_u16_le(payload, cursor + 2)
+          b["w"] = self._read_u16_le(payload, cursor + 4)
+          b["h"] = self._read_u16_le(payload, cursor + 6)
+          b["score"] = payload[cursor + 8]
+          b["target"] = self._read_u16_le(payload, cursor + 9)
+        cursor += 11
+      return True
+
+    if msg_type in (self.HP_BIN_MSG_HAND_KP_CHUNK, self.HP_BIN_MSG_POSE_KP_CHUNK):
+      if len(payload) < 10:
+        return False
+      total_kps = self._read_u16_le(payload, 0)
+      kp_index = self._read_u16_le(payload, 2)
+      total_points = payload[4]
+      point_offset = payload[5]
+      point_count = payload[6]
+      point_format = payload[7]  # 0 hand[x,y], 1 pose[x,y,score,target]
+      has_box = payload[8]
+      self._bin_result_count = total_kps
+      if kp_index >= self.MAX_RESULT_NUM:
+        return True
+
+      b = self._bin_results[kp_index]
+      b["used"] = True
+      b["is_pose"] = (point_format == 1)
+
+      cursor = 10
+      if has_box:
+        if cursor + 11 > len(payload):
+          return False
+        b["x"] = self._read_u16_le(payload, cursor + 0)
+        b["y"] = self._read_u16_le(payload, cursor + 2)
+        b["w"] = self._read_u16_le(payload, cursor + 4)
+        b["h"] = self._read_u16_le(payload, cursor + 6)
+        b["score"] = payload[cursor + 8]
+        b["target"] = self._read_u16_le(payload, cursor + 9)
+        cursor += 11
+
+      if point_offset > total_points:
+        return False
+      if point_count > (total_points - point_offset):
+        point_count = total_points - point_offset
+
+      for i in range(point_count):
+        point_index = point_offset + i
+        if point_format == 1:
+          if cursor + 6 > len(payload):
+            break
+          x = self._read_u16_le(payload, cursor + 0)
+          y = self._read_u16_le(payload, cursor + 2)
+          target = payload[cursor + 5]
+          if target < 17:
+            point_index = target
+          cursor += 6
+        else:
+          if cursor + 4 > len(payload):
+            break
+          x = self._read_u16_le(payload, cursor + 0)
+          y = self._read_u16_le(payload, cursor + 2)
+          cursor += 4
+
+        if point_index < 21:
+          b["points"][point_index] = PointU16(int(x), int(y))
+          b["point_valid"][point_index] = 1
+      return True
+
+    if msg_type == self.HP_BIN_MSG_INVOKE_END:
+      self._invoke_event_code = self._read_i16_le(payload, 0) if len(payload) >= 2 else 0
+      self._finalize_binary_results()
+      self._invoke_event_ready = True
+      return True
+
+    return False
+
+  def _process_binary_frames(self) -> bool:
+    if len(self._rx_buf) < 2:
+      return False
+
+    sof_pos = -1
+    for i in range(len(self._rx_buf) - 1):
+      if self._rx_buf[i] == self.HP_BIN_SOF0 and self._rx_buf[i + 1] == self.HP_BIN_SOF1:
+        sof_pos = i
+        break
+
+    if sof_pos < 0:
+      return False
+    if sof_pos > 0:
+      del self._rx_buf[:sof_pos]
+      return True
+
+    if len(self._rx_buf) < self.HP_BIN_HDR_LEN:
+      return False
+
+    frame = bytes(self._rx_buf)
+    payload_len = self._read_u16_le(frame, 7)
+    frame_len = self.HP_BIN_HDR_LEN + payload_len
+    if frame_len > len(self._rx_buf):
+      return False
+    if frame_len > 32768:
+      del self._rx_buf[:1]
+      return True
+
+    frame = bytes(self._rx_buf[:frame_len])
+    crc_rx = self._read_u16_le(frame, 9)
+    crc = self._crc16_ccitt_update(0xFFFF, frame[:9])
+    crc = self._crc16_ccitt_update(crc, frame[self.HP_BIN_HDR_LEN:])
+    if crc != crc_rx:
+      del self._rx_buf[:1]
+      return True
+
+    msg_type = frame[3]
+    flags = frame[4]
+    payload = frame[self.HP_BIN_HDR_LEN:]
+    if msg_type == self.HP_BIN_MSG_AT_RSP:
+      self._process_binary_at_response(flags, payload)
+    else:
+      self._process_binary_invoke(msg_type, flags, payload)
+
+    del self._rx_buf[:frame_len]
+    return True
 
   def _get_name(self) -> int:
-    self._write(f"AT+{self.AT_NAME}\r\n")
+    self._write(f"AT+{self.AT_NAME}?\r\n")
     self._name = ""
     if self._wait(self.CMD_TYPE_RESPONSE, self.AT_NAME) == self.CODE_OK:
       return self.CODE_OK
@@ -313,18 +841,52 @@ class DFRobot_HumanPose(object):
   def begin(self):
     """
     @fn    begin
-    @brief Initialize the sensor and verify device name.
+    @brief Initialize the sensor in binary mode and verify device name.
     @return True: Initialization succeeded, False: Initialization failed.
     """
-    if (self._get_name() != self.CODE_OK) or (self._name != self.HUMANPOSE_NAME):
+    self._rx_buf.clear()
+    self._at_payload_buf.clear()
+    self._results = []
+    self._clear_binary_results()
+    self._at_rsp_ready = False
+    self._invoke_event_ready = False
+    self._binary_mode = False
+
+    # Force binary mode
+    self._write(f"AT+{self.AT_TPROTO}=1\r\n")
+    tproto_ret = self._wait(self.CMD_TYPE_RESPONSE, self.AT_TPROTO, timeout_ms=1200)
+    if tproto_ret != self.CODE_OK:
+      return False
+    self._binary_mode = True
+
+    # Tune packet size for stable transfer on Python side
+    self._write(f"AT+{self.AT_TPKTSZ}=192\r\n")
+    self._wait(self.CMD_TYPE_RESPONSE, self.AT_TPKTSZ, timeout_ms=1200)
+
+    # Python runs on large-memory boards, default to keypoints enabled
+    if self.set_keypoint_output(True) != self.CODE_OK:
+      return False
+
+    if (self._get_name() != self.CODE_OK) or (self.HUMANPOSE_NAME not in self._name):
       return False
     return True
 
   def _wait(self, expected_type: int, cmd: str, timeout_ms=3000) -> int:
     start = time.monotonic()
-    dec = json.JSONDecoder()
 
     while (time.monotonic() - start) * 1000 <= timeout_ms:
+      if expected_type == self.CMD_TYPE_RESPONSE and self._at_rsp_ready and self._at_rsp_type == self.CMD_TYPE_RESPONSE:
+        if self._command_matches(self._at_rsp_cmd_id, cmd):
+          ret = int(self._at_rsp_code)
+          self._at_rsp_ready = False
+          return ret
+        self._at_rsp_ready = False
+
+      if expected_type == self.CMD_TYPE_EVENT and cmd and self.EVENT_INVOKE in cmd and self._invoke_event_ready:
+        ret = int(self._invoke_event_code)
+        self._invoke_event_ready = False
+        return ret
+
       n = self._available()
       if n <= 0:
         time.sleep(0.001)
@@ -334,172 +896,29 @@ class DFRobot_HumanPose(object):
       if not chunk:
         continue
 
-      # _read returns list[int]; normalize to bytes for _rx_buf.extend
       data = bytes(chunk)
       self._rx_buf.extend(data)
-
-      # Decode buffer to string (ignore avoids partial utf-8)
-      text = self._rx_buf.decode("utf-8", errors="ignore")
-
-      # Parse multiple JSON objects from text (allows leading non-JSON bytes)
-      idx = 0
-      consumed_upto = 0
-
-      while idx < len(text):
-        # Find next JSON start
-        p1 = text.find("{", idx)
-        p2 = text.find("[", idx)
-        if p1 == -1 and p2 == -1:
-          break
-        start_pos = p1 if p2 == -1 else (p2 if p1 == -1 else min(p1, p2))
-
-        try:
-          obj, end = dec.raw_decode(text, start_pos)
-        except json.JSONDecodeError:
-          # JSON may be incomplete, wait for more data
-          break
-
-        # Parsed one complete JSON, record consumed position
-        consumed_upto = end
-        idx = end
-
-        if not isinstance(obj, dict):
-          continue
-
-        r_type = obj.get("type")
-        r_name = obj.get("name") or ""
-        r_code = obj.get("code", 0)
-
-        if r_type == self.CMD_TYPE_EVENT:
-          self._parser_event(obj)
-
-        if r_type == expected_type and r_name:
-          if r_name == cmd or r_name.startswith(cmd):
-            self._parser_response(obj)
-            # Consume processed bytes (simple: clear buffer)
-            self._rx_buf.clear()
-            return int(r_code)
-
-      # Remove parsed portion from rx_buf
-      # Simple strategy: clear decoded buffer if at least one JSON was parsed
-      # Precise byte alignment is trickier; for ASCII/JSON serial data this is usually stable enough
-      if consumed_upto > 0:
-        # Re-encode to get consumed byte length (safe for ASCII/UTF-8)
-        consumed_bytes = len(text[:consumed_upto].encode("utf-8", errors="ignore"))
-        del self._rx_buf[:consumed_bytes]
+      progressed = True
+      while progressed:
+        progressed = self._process_binary_frames()
 
     return self.CODE_TIMEOUT
-
-  def _parse_json_objects_from_text(self, text: str):
-    """Parse multiple JSON objects from text (allows leading non-JSON bytes)."""
-    dec = json.JSONDecoder()
-    idx = 0
-    n = len(text)
-
-    while idx < n:
-      # Find next JSON start symbol
-      p1 = text.find("{", idx)
-      p2 = text.find("[", idx)
-      if p1 == -1 and p2 == -1:
-        break
-      start = p1 if p2 == -1 else (p2 if p1 == -1 else min(p1, p2))
-      idx = start
-
-      try:
-        obj, end = dec.raw_decode(text, idx)
-        yield obj
-        idx = end
-      except json.JSONDecodeError:
-        # May be partial/garbage, advance and continue
-        idx += 1
-
-  def _parser_event(self, obj: dict):
-    """Handle INVOKE event: parse pose_keypoints or hand_keypoints into self._results."""
-    event_name = obj.get("name", "")
-    if not event_name or "INVOKE" not in event_name:
-      return
-
-    data = obj.get("data") or {}
-    # Compat: if data is not dict return
-    if not isinstance(data, dict):
-      return
-
-    # ---- pose_keypoints ----
-    if isinstance(data.get("pose_keypoints"), list):
-      keypoints = data["pose_keypoints"]
-      classes = ((data.get("pose_class") or {}).get("available_classes")) or []
-      self._results = [PoseResult.from_json(kp, classes) for kp in keypoints]
-      logging.debug("Parsed %d pose results", len(self._results))
-      return
-
-    # ---- hand_keypoints ----
-    if isinstance(data.get("hand_keypoints"), list):
-      keypoints = data["hand_keypoints"]
-      classes = ((data.get("hand_class") or {}).get("available_classes")) or []
-      self._results = [HandResult.from_json(kp, classes) for kp in keypoints]
-      logging.debug("Parsed %d hand results", len(self._results))
-      return
-
-    logging.debug(f"EVENT: {json.dumps(obj, ensure_ascii=False)}")
-
-  def _parser_response(self, obj: dict):
-    """
-    Handle response frames and update internal cached values.
-
-    Mirrors the C++ driver behaviour:
-    - NAME      -> update self._name
-    - TSCORE    -> numeric config value in self._ret_data
-    - TIOU      -> numeric config value in self._ret_data
-    - TSIMILARITY -> numeric config value in self._ret_data
-    - MODEL     -> current model id in self._ret_data
-    - POSELIST/HANDLIST -> learned target list in self._ret_data
-    """
-    r_name = obj.get("name", "") or ""
-    data = obj.get("data")
-
-    # Device name
-    if r_name == self.AT_NAME:
-      # Expect a simple string for name
-      self._name = str(data) if data is not None else ""
-      logging.debug("Device name: %s", self._name)
-
-    # Learned list (pose/hand)
-    elif self.AT_POSELIST in r_name or self.AT_HANDLIST in r_name:
-      # C++ stores into an internal LearnList; Python returns a plain list
-      if isinstance(data, list):
-        self._ret_data = data
-      else:
-        # Fallback: wrap single value
-        self._ret_data = [data] if data is not None else []
-      logging.debug("Learn list size: %d", len(self._ret_data))
-
-    # Threshold-like numeric configs (TSCORE/TIOU/TSIMILARITY)
-    elif self.AT_TSCORE in r_name or self.AT_TIOU in r_name or self.AT_TSIMILARITY in r_name:
-      try:
-        self._ret_data = int(data)
-      except (TypeError, ValueError):
-        self._ret_data = None
-      logging.debug("Config value (%s): %s", r_name, self._ret_data)
-
-    # Model info: {"id": <int>, ...}
-    elif self.AT_MODEL in r_name and isinstance(data, dict):
-      try:
-        self._ret_data = int(data.get("id", 0))
-      except (TypeError, ValueError):
-        self._ret_data = None
-      logging.debug("Model id: %s", self._ret_data)
-
-    logging.debug(f"RESPONSE: {json.dumps(obj, ensure_ascii=False)}")
 
   def get_result(self):
     """
     @fn    get_result
-    @brief Trigger one detection and wait for INVOKE event; results are stored and read via available_result/pop_result.
+    @brief Trigger one detection and wait for INVOKE response/event; results are stored and read via available_result/pop_result.
     @return CODE_OK: Success, CODE_TIMEOUT: Timeout.
     """
+    self._invoke_event_ready = False
+    self._invoke_event_code = 0
+    for r in self._results:
+      r.used = True
+    self._clear_binary_results()
     self._write(f"AT+{self.AT_INVOKE}=1,0,1\r\n")
-    if self._wait(self.CMD_TYPE_EVENT, self.AT_INVOKE) == self.CODE_OK:
-      return self.CODE_OK
+    if self._wait(self.CMD_TYPE_RESPONSE, self.AT_INVOKE, timeout_ms=1000) == self.CODE_OK:
+      if self._wait(self.CMD_TYPE_EVENT, self.EVENT_INVOKE, timeout_ms=1000) == self.CODE_OK:
+        return self.CODE_OK
     return self.CODE_TIMEOUT
 
   def set_confidence(self, confidence):
@@ -547,6 +966,7 @@ class DFRobot_HumanPose(object):
     """
     self._write(f"AT+{self.AT_MODEL}={model}\r\n")
     if self._wait(self.CMD_TYPE_RESPONSE, self.AT_MODEL) == self.CODE_OK:
+      self._current_model = model
       return self.CODE_OK
     return self.CODE_TIMEOUT
 
@@ -588,12 +1008,36 @@ class DFRobot_HumanPose(object):
     @fn    get_learn_list
     @brief Get the list of learned target names for the given model.
     @param model: MODEL_POSE or MODEL_HAND.
-    @return List of names on success, None on timeout.
+    @return List of names. Returns empty list on timeout.
     """
+    self._learn_list = []
     model_list = self.AT_POSELIST if model == self.MODEL_POSE else self.AT_HANDLIST
     self._write(f"AT+{model_list}\r\n")
     if self._wait(self.CMD_TYPE_RESPONSE, model_list) == self.CODE_OK:
-      return self._ret_data
+      return list(self._learn_list)
+    return []
+
+  def set_keypoint_output(self, enable: bool):
+    """
+    @fn    set_keypoint_output
+    @brief Configure whether INVOKE output includes keypoints.
+    @param enable: True include keypoints, False boxes only.
+    @return CODE_OK: Success, CODE_TIMEOUT: Timeout.
+    """
+    self._write(f"AT+{self.AT_TKPTS}={1 if enable else 0}\r\n")
+    if self._wait(self.CMD_TYPE_RESPONSE, self.AT_TKPTS) == self.CODE_OK:
+      return self.CODE_OK
+    return self.CODE_TIMEOUT
+
+  def get_keypoint_output(self):
+    """
+    @fn    get_keypoint_output
+    @brief Get whether INVOKE output includes keypoints.
+    @return 1/0 on success, None on timeout.
+    """
+    self._write(f"AT+{self.AT_TKPTS}?\r\n")
+    if self._wait(self.CMD_TYPE_RESPONSE, self.AT_TKPTS) == self.CODE_OK:
+      return 1 if self._ret_data else 0
     return None
 
   def available_result(self):

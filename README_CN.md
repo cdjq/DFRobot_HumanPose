@@ -20,7 +20,7 @@ HumanPose是一款可以检测人体姿态和手势的传感器库。
 ## 安装
 
 1. 要使用此库，首先下载库文件，将其粘贴到 `\Arduino\libraries` 目录中，然后打开示例文件夹并运行其中的示例。
-2. 使用该库还需下载依赖：https://github.com/bblanchon/ArduinoJson
+2. 该库仅使用二进制协议，不依赖 ArduinoJson。
 
 ## 方法
 ```c++
