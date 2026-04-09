@@ -1265,8 +1265,39 @@ DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getResult()
   return eTimedOut;
 }
 
+static bool hp_is_percent_0_100(uint8_t v)
+{
+  return v <= 100;
+}
+
+static bool hp_is_valid_model(DFRobot_HumanPose::eModel_t model)
+{
+  return (model == DFRobot_HumanPose::eHand || model == DFRobot_HumanPose::ePose || model == DFRobot_HumanPose::eGes);
+}
+
+static bool hp_is_valid_baud(DFRobot_HumanPose_UART::eBaudConfig_t baud)
+{
+  switch (baud) {
+    case DFRobot_HumanPose_UART::eBaud_9600:
+    case DFRobot_HumanPose_UART::eBaud_14400:
+    case DFRobot_HumanPose_UART::eBaud_19200:
+    case DFRobot_HumanPose_UART::eBaud_38400:
+    case DFRobot_HumanPose_UART::eBaud_57600:
+    case DFRobot_HumanPose_UART::eBaud_115200:
+    case DFRobot_HumanPose_UART::eBaud_230400:
+    case DFRobot_HumanPose_UART::eBaud_460800:
+    case DFRobot_HumanPose_UART::eBaud_921600:
+      return true;
+    default:
+      return false;
+  }
+}
+
 DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::setConfidence(uint8_t confidence)
 {
+  if (!hp_is_percent_0_100(confidence)) {
+    return eINVAL;
+  }
   char cmd[64] = { 0 };
   snprintf(cmd, sizeof(cmd), CMD_PRE "%s=%d" CMD_SUF, AT_TSCORE, confidence);
   write(cmd, strlen(cmd));
@@ -1280,6 +1311,9 @@ DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::setConfidence(uint8_t confidenc
 
 DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::setIOU(uint8_t iou)
 {
+  if (!hp_is_percent_0_100(iou)) {
+    return eINVAL;
+  }
   char cmd[64] = { 0 };
   snprintf(cmd, sizeof(cmd), CMD_PRE "%s=%d" CMD_SUF, AT_TIOU, iou);
   write(cmd, strlen(cmd));
@@ -1292,6 +1326,9 @@ DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::setIOU(uint8_t iou)
 
 DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::setModelType(eModel_t model)
 {
+  if (!hp_is_valid_model(model)) {
+    return eINVAL;
+  }
   char cmd[64] = { 0 };
   snprintf(cmd, sizeof(cmd), CMD_PRE "%s=%d" CMD_SUF, AT_MODEL, (int)model);
   write(cmd, strlen(cmd));
@@ -1309,6 +1346,9 @@ DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::setModelType(eModel_t model)
 
 DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::setLearnSimilarity(uint8_t Similarity)
 {
+  if (!hp_is_percent_0_100(Similarity)) {
+    return eINVAL;
+  }
   char cmd[64] = { 0 };
   snprintf(cmd, sizeof(cmd), CMD_PRE "%s=%d" CMD_SUF, AT_TSIMILARITY, (int)Similarity);
   write(cmd, strlen(cmd));
@@ -1321,6 +1361,9 @@ DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::setLearnSimilarity(uint8_t Simi
 
 DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getConfidence(uint8_t *confidence)
 {
+  if (!confidence) {
+    return eINVAL;
+  }
   char cmd[64] = { 0 };
   snprintf(cmd, sizeof(cmd), CMD_PRE "%s?" CMD_SUF, AT_TSCORE);
   write(cmd, strlen(cmd));
@@ -1334,6 +1377,9 @@ DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getConfidence(uint8_t *confiden
 
 DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getIOU(uint8_t *iou)
 {
+  if (!iou) {
+    return eINVAL;
+  }
   char cmd[64] = { 0 };
   snprintf(cmd, sizeof(cmd), CMD_PRE "%s?" CMD_SUF, AT_TIOU);
   write(cmd, strlen(cmd));
@@ -1347,6 +1393,9 @@ DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getIOU(uint8_t *iou)
 
 DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getLearnSimilarity(uint8_t *Similarity)
 {
+  if (!Similarity) {
+    return eINVAL;
+  }
   char cmd[64] = { 0 };
   snprintf(cmd, sizeof(cmd), CMD_PRE "%s?" CMD_SUF, AT_TSIMILARITY);
   write(cmd, strlen(cmd));
@@ -1389,6 +1438,10 @@ DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getKeypointOutput(uint8_t *enab
 LearnList DFRobot_HumanPose::getLearnList(eModel_t model)
 {
   char cmd[64] = { 0 };
+  if (!hp_is_valid_model(model)) {
+    LearnList empty;
+    return empty;
+  }
   // GES: fixed class names only (id 0..14); no learn list AT on device.
   if (model == eGes) {
     LearnList empty;
@@ -1446,6 +1499,9 @@ Result *DFRobot_HumanPose::popResult()
 
 DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getName(char *name)
 {
+  if (!name) {
+    return eINVAL;
+  }
   char cmd[64] = { 0 };
   snprintf(cmd, sizeof(cmd), CMD_PRE "%s?" CMD_SUF, AT_NAME);
   write(cmd, strlen(cmd));
@@ -1678,6 +1734,9 @@ bool DFRobot_HumanPose_UART::begin(void)
 
 bool DFRobot_HumanPose_UART::setBaud(eBaudConfig_t baud)
 {
+  if (!hp_is_valid_baud(baud)) {
+    return false;
+  }
   /* Clear parser state and drain UART so the BAUD reply is not mixed with stale RX / flags. */
   _at_rsp_ready = false;
   _invoke_event_ready = false;

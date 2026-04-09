@@ -414,6 +414,13 @@ class DFRobot_HumanPose(object):
     return crc & 0xFFFF
 
   @staticmethod
+  def _is_percent_0_100(value) -> bool:
+    return isinstance(value, int) and (0 <= value <= 100)
+
+  def _is_valid_model(self, model) -> bool:
+    return model in (self.MODEL_HAND, self.MODEL_POSE, self.MODEL_GES)
+
+  @staticmethod
   def _new_bin_result() -> Dict[str, Any]:
     return {
       "used": False,
@@ -957,6 +964,8 @@ class DFRobot_HumanPose(object):
     @param confidence: Confidence threshold.
     @return CODE_OK: Success, CODE_TIMEOUT: Timeout.
     """
+    if not self._is_percent_0_100(confidence):
+      return self.CODE_INVAL
     self._write(f"AT+{self.AT_TSCORE}={confidence}\r\n")
     if self._wait(self.CMD_TYPE_RESPONSE, self.AT_TSCORE) == self.CODE_OK:
       return self.CODE_OK
@@ -969,6 +978,8 @@ class DFRobot_HumanPose(object):
     @param iou: IOU threshold.
     @return CODE_OK: Success, CODE_TIMEOUT: Timeout.
     """
+    if not self._is_percent_0_100(iou):
+      return self.CODE_INVAL
     self._write(f"AT+{self.AT_TIOU}={iou}\r\n")
     if self._wait(self.CMD_TYPE_RESPONSE, self.AT_TIOU) == self.CODE_OK:
       return self.CODE_OK
@@ -981,6 +992,8 @@ class DFRobot_HumanPose(object):
     @param similarity: Similarity threshold.
     @return CODE_OK: Success, CODE_TIMEOUT: Timeout.
     """
+    if not self._is_percent_0_100(similarity):
+      return self.CODE_INVAL
     self._write(f"AT+{self.AT_TSIMILARITY}={similarity}\r\n")
     if self._wait(self.CMD_TYPE_RESPONSE, self.AT_TSIMILARITY) == self.CODE_OK:
       return self.CODE_OK
@@ -993,6 +1006,8 @@ class DFRobot_HumanPose(object):
     @param model: MODEL_HAND (1), MODEL_POSE (3), or MODEL_GES (4) fixed gesture classification.
     @return CODE_OK: Success, CODE_TIMEOUT: Timeout.
     """
+    if not self._is_valid_model(model):
+      return self.CODE_INVAL
     self._write(f"AT+{self.AT_MODEL}={model}\r\n")
     if self._wait(self.CMD_TYPE_RESPONSE, self.AT_MODEL) == self.CODE_OK:
       self._current_model = model
@@ -1041,6 +1056,8 @@ class DFRobot_HumanPose(object):
     @return List of names. Returns empty list on timeout or for MODEL_GES.
     """
     self._learn_list = []
+    if not self._is_valid_model(model):
+      return []
     if model == self.MODEL_GES:
       return []
     model_list = self.AT_POSELIST if model == self.MODEL_POSE else self.AT_HANDLIST
@@ -1219,6 +1236,8 @@ class DFRobot_HumanPose_UART(DFRobot_HumanPose):
     elif board is None:
       board = gboard
 
+    if baudrate not in self.BAUD_OPTIONS:
+      raise ValueError("Unsupported baudrate: {}".format(baudrate))
     self.uart = UART(tty_name=tty_name)
     self.uart.init(baud_rate=baudrate, bits=8, parity=0, stop=1)
     super().__init__()
@@ -1263,6 +1282,8 @@ class DFRobot_HumanPose_UART(DFRobot_HumanPose):
     @n     Note: After setting, re-initialize the serial port and sensor with the new baud rate.
     @return True: Set baud rate succeeded, False: Set baud rate failed.
     """
+    if baudrate not in self.BAUD_OPTIONS:
+      return False
     self._write(f"AT+{self.AT_BAUD}={baudrate}\r\n")
     if self._wait(self.CMD_TYPE_RESPONSE, self.AT_BAUD) == self.CODE_OK:
       return True
