@@ -24,7 +24,7 @@ from DFRobot_HumanPose import DFRobot_HumanPose_I2C, DFRobot_HumanPose_UART
 
 NO_TARGET_PRINT_INTERVAL = 20
 TIMEOUT_PRINT_INTERVAL = 20
-POLL_INTERVAL_SEC = 0.1
+POLL_INTERVAL_SEC = 0.02
 
 
 def format_detection_line(index, result):
