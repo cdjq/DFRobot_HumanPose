@@ -24,7 +24,7 @@ from DFRobot_HumanPose import DFRobot_HumanPose_UART
 
 # ------------ Configuration (use BAUD_* constants from library) ------------
 # Serial port where sensor is connected (e.g. /dev/ttyS0 or /dev/ttyAMA0 on Raspberry Pi)
-UART_TTY = "/dev/ttyS0"
+UART_TTY = "/dev/ttyAMA0"
 
 # Current baud rate the sensor is using (often BAUD_9600 when first used or never changed)
 INITIAL_BAUD = DFRobot_HumanPose_UART.BAUD_9600

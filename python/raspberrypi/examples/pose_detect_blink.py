@@ -35,8 +35,8 @@ USE_I2C = True  # True: I2C  /  False: UART
 I2C_BUS = 1  # I2C bus number on Raspberry Pi, usually 1
 
 # UART config (when USE_I2C=False)
-UART_TTY = "/dev/ttyS0"
-UART_BAUD = 921600
+UART_TTY = "/dev/ttyAMA0"
+UART_BAUD = 9600
 
 # LED: GPIO (BCM) for indicator, e.g. external LED on GPIO17; set None to only print "LED ON/OFF"
 LED_PIN_NUM = 17
@@ -58,8 +58,10 @@ def main():
   # Initialize sensor
   if USE_I2C:
     human_pose = DFRobot_HumanPose_I2C(bus_num=I2C_BUS)
+    print(f"[COMM] I2C bus={I2C_BUS}")
   else:
     human_pose = DFRobot_HumanPose_UART(tty_name=UART_TTY, baudrate=UART_BAUD)
+    print(f"[COMM] UART tty={UART_TTY}, baud={UART_BAUD}")
 
   if not human_pose.begin():
     print("Sensor init fail!")

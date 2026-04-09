@@ -1222,12 +1222,12 @@ class DFRobot_HumanPose_UART(DFRobot_HumanPose):
 
   BAUD_OPTIONS = (BAUD_9600, BAUD_14400, BAUD_19200, BAUD_38400, BAUD_57600, BAUD_115200, BAUD_230400, BAUD_460800, BAUD_921600)
 
-  def __init__(self, board=None, tty_name="/dev/ttyS0", baudrate=BAUD_9600):
+  def __init__(self, board=None, tty_name="/dev/ttyAMA0", baudrate=BAUD_9600):
     """
     @fn    __init__
     @brief Initialize UART communication.
     @param board: Board instance or tty path string (optional).
-    @param tty_name: Serial port name, e.g. "/dev/ttyS0" or "/dev/ttyAMA0" on Raspberry Pi.
+    @param tty_name: Serial port name, e.g. "/dev/ttyAMA0" or "/dev/ttyS0" on Raspberry Pi.
     @param baudrate: Baud rate (use BAUD_* constants or integer); default 9600.
     """
     if isinstance(board, str):

@@ -21,6 +21,16 @@ import sys
 sys.path.append("../")
 from DFRobot_HumanPose import DFRobot_HumanPose_I2C, DFRobot_HumanPose_UART, HandResult, PoseResult
 
+# ------------ Communication config (macro-style switch) ------------
+USE_I2C = True  # True: I2C / False: UART
+
+# I2C config (when USE_I2C=True)
+I2C_BUS = 1
+
+# UART config (when USE_I2C=False)
+UART_TTY = "/dev/ttyAMA0"
+UART_BAUD = 9600
+
 Board("RPI").begin()
 # Board("UNIHIKER").begin()
 
@@ -173,8 +183,12 @@ class ProtocolThread(threading.Thread):
 
 
 if __name__ == "__main__":
-  humanpose = DFRobot_HumanPose_I2C(bus_num=1)
-  # humanpose = DFRobot_HumanPose_UART(tty_name="/dev/ttyAMA0")
+  if USE_I2C:
+    humanpose = DFRobot_HumanPose_I2C(bus_num=I2C_BUS)
+    print(f"[COMM] I2C bus={I2C_BUS}")
+  else:
+    humanpose = DFRobot_HumanPose_UART(tty_name=UART_TTY, baudrate=UART_BAUD)
+    print(f"[COMM] UART tty={UART_TTY}, baud={UART_BAUD}")
 
   if not humanpose.begin():
     print("begin failed")
