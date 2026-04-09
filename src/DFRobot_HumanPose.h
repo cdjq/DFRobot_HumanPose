@@ -8,7 +8,7 @@
  * @version  V1.0
  * @date  2026-02-04
  * @url         https://github.com/DFRobot/DFRobot_HumanPose
-*/
+ */
 #ifndef DFROBOT_HUMANPOSE_H
 #define DFROBOT_HUMANPOSE_H
 
@@ -27,10 +27,19 @@
 #endif
 
 /* Detect small-memory boards (microbit, nRF5, AVR) for reduced buffers. */
-#if defined(ARDUINO_BBC_MICROBIT) || defined(ARDUINO_BBC_MICROBIT_V2) || defined(ARDUINO_AVR_LEONARDO) || defined(ARDUINO_AVR_UNO) || (defined(ARDUINO_ARCH_AVR) && !defined(ARDUINO_AVR_MEGA2560) && !defined(ARDUINO_AVR_MEGA)) || defined(ARDUINO_ARCH_NRF5)
+#if defined(ARDUINO_BBC_MICROBIT) || defined(ARDUINO_BBC_MICROBIT_V2) || defined(ARDUINO_AVR_LEONARDO) || defined(ARDUINO_AVR_UNO) || defined(ARDUINO_ARCH_AVR) || defined(ARDUINO_AVR_MEGA2560) || defined(ARDUINO_AVR_MEGA) || defined(ARDUINO_ARCH_NRF5)
 #define USE_SIMPLE_CONTAINERS 1
 #else
 #define USE_SIMPLE_CONTAINERS 0
+#endif
+
+/* Extra-tight profile for UNO-class RAM (ATmega328p family). */
+#ifndef DFR_HUMANPOSE_TINY_RAM
+#if defined(ARDUINO_AVR_UNO) || defined(ARDUINO_AVR_NANO) || defined(ARDUINO_AVR_MINI)
+#define DFR_HUMANPOSE_TINY_RAM 1
+#else
+#define DFR_HUMANPOSE_TINY_RAM 0
+#endif
 #endif
 
 /* Low-memory policy for runtime defaults:
@@ -91,7 +100,11 @@
 /** Fixed-capacity list for learned target names (avoids std::vector for AVR/min-max compatibility). */
 #if USE_SIMPLE_CONTAINERS
 #if DFR_HUMANPOSE_SMALL_RAM_PROFILE
+#if DFR_HUMANPOSE_TINY_RAM
+#define LEARN_LIST_CAP 4
+#else
 #define LEARN_LIST_CAP 8
+#endif
 #else
 #define LEARN_LIST_CAP 16
 #endif
@@ -154,7 +167,11 @@ protected:
 #ifndef RX_MAX_SIZE
 #if USE_SIMPLE_CONTAINERS
 #if DFR_HUMANPOSE_SMALL_RAM_PROFILE
+#if DFR_HUMANPOSE_TINY_RAM
+#define RX_MAX_SIZE 192
+#else
 #define RX_MAX_SIZE 256
+#endif
 #else
 #define RX_MAX_SIZE 512
 #endif
@@ -170,7 +187,11 @@ protected:
 #ifndef AT_PAYLOAD_MAX_SIZE
 #if USE_SIMPLE_CONTAINERS
 #if DFR_HUMANPOSE_SMALL_RAM_PROFILE
+#if DFR_HUMANPOSE_TINY_RAM
 #define AT_PAYLOAD_MAX_SIZE 192
+#else
+#define AT_PAYLOAD_MAX_SIZE 192
+#endif
 #else
 #define AT_PAYLOAD_MAX_SIZE 384
 #endif
@@ -194,7 +215,7 @@ protected:
 #endif
 
 #ifndef UART_BAUD
-#define UART_BAUD 921600
+#define UART_BAUD 9600
 #endif
 
 #define CMD_PRE "AT+"
@@ -205,9 +226,21 @@ protected:
 #define CMD_TYPE_LOG      2
 
 #if DFR_HUMANPOSE_SMALL_RAM_PROFILE
+#if DFR_HUMANPOSE_TINY_RAM
+#define MAX_RESULT_NUM 1
+#else
 #define MAX_RESULT_NUM 2
+#endif
 #else
 #define MAX_RESULT_NUM 4
+#endif
+
+#if DFR_HUMANPOSE_TINY_RAM
+#define DEVICE_NAME_BUF_SIZE 20
+#define AT_RSP_NAME_BUF_SIZE 12
+#else
+#define DEVICE_NAME_BUF_SIZE 24
+#define AT_RSP_NAME_BUF_SIZE 20
 #endif
 
 #define AT_NAME        "NAME"
@@ -251,12 +284,14 @@ public:
   typedef enum {
     eHand = 1,    ///< Hand detection model
     ePose = 3,    ///< Human pose detection model
+    eGes  = 4,    ///< GES: fixed gesture classification (MODEL 4); no user learn list on device
   } eModel_t;
 
 protected:
   Result  *_result[MAX_RESULT_NUM];
 #if !DFR_HUMANPOSE_LOW_MEMORY
   bool     _result_is_pose[MAX_RESULT_NUM];
+  bool     _result_is_ges[MAX_RESULT_NUM];
 #endif
   int      _wait_delay;
   uint32_t rx_end;
@@ -266,8 +301,10 @@ protected:
   uint32_t rx_len;
 
   uint8_t   _ret_data;
-  char      _name[24] = "";
+  char      _name[DEVICE_NAME_BUF_SIZE] = { 0 };
+#if !DFR_HUMANPOSE_LOW_MEMORY
   LearnList _learn_list;
+#endif
   LearnList _pose_class_list;
   LearnList _hand_class_list;
   bool      _binary_mode = false;
@@ -277,7 +314,7 @@ protected:
   int8_t _at_rsp_type = CMD_TYPE_RESPONSE;
   int16_t _at_rsp_code = 0;
   uint16_t _at_rsp_cmd_id = 0;
-  char _at_rsp_name[20] = "";
+  char _at_rsp_name[AT_RSP_NAME_BUF_SIZE] = { 0 };
 
   bool    _invoke_event_ready = false;
   int16_t _invoke_event_code = 0;
@@ -379,7 +416,7 @@ public:
 
   /**
    * @fn begin
-   * @brief Initialize the sensor
+   * @brief Initialize the sensor (binary AT mode, packet size, keypoints policy, verify name)
    * @return True if initialization is successful, otherwise false
    */
   bool begin();
@@ -389,7 +426,7 @@ public:
    * @brief Get detection results from the sensor
    * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
    * @note After calling this function, the detection results will be stored in the internal result array.
-   *       You can access the results using availableResult() and popResult() methods.
+   *       Use availableResult() and popResult(). `ePose` -> PoseResult, `eHand` -> HandResult, `eGes` -> Result (bbox + class name).
    */
   eCmdCode_t getResult();
 
@@ -422,11 +459,12 @@ public:
    * @fn setModelType
    * @brief Set the detection model
    *
-   * Selects which detection model to use. The sensor supports hand detection and human pose detection.
+   * Selects which detection model to use: hand, human pose, or GES fixed gesture classification.
    *
    * @param model Model type of type `eModel_t`, with possible values including:
    *              - `eHand` - Hand detection model
    *              - `ePose` - Human pose detection model
+   *              - `eGes`  - GES fixed gesture classification (MODEL 4)
    * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
    */
   eCmdCode_t setModelType(eModel_t model);
@@ -502,12 +540,23 @@ public:
    * @param model Model type of type `eModel_t`:
    *              - `eHand` - Get list of learned hand gestures
    *              - `ePose` - Get list of learned poses
-   * @return Vector of strings containing the names of learned targets. Returns empty vector on error.
+   *              - `eGes`  - Not applicable (returns empty list; fixed class names only, id 0..14)
+   * @return Vector of learned names. Empty for `eGes` or on error.
    */
   LearnList getLearnList(eModel_t model);
 
+  /**
+   * @fn availableResult
+   * @brief Returns true if at least one detection result from the last successful getResult() is unread.
+   * @return true if an unread Result exists, false otherwise
+   */
   bool availableResult();
 
+  /**
+   * @fn popResult
+   * @brief Take the next unread detection result (marks it used). Cast by current model: PoseResult / HandResult / Result.
+   * @return Pointer to Result, or NULL if none available
+   */
   Result *popResult();
 };
 
@@ -579,8 +628,9 @@ public:
    * @enum eBaudConfig_t
    * @brief Baud rate configuration options
    */
-  typedef enum {
-    eBaud_9600   = 9600,      ///< Baud rate 9600
+  /* Use uint32_t on AVR: int is 16-bit; values >32767 (e.g. 115200) would overflow. */
+  typedef enum : uint32_t {
+    eBaud_9600   = 9600,      ///< Baud rate 9600 (default UART link; see UART_BAUD)
     eBaud_14400  = 14400,     ///< Baud rate 14400
     eBaud_19200  = 19200,     ///< Baud rate 19200
     eBaud_38400  = 38400,     ///< Baud rate 38400
@@ -588,7 +638,7 @@ public:
     eBaud_115200 = 115200,    ///< Baud rate 115200
     eBaud_230400 = 230400,    ///< Baud rate 230400
     eBaud_460800 = 460800,    ///< Baud rate 460800
-    eBaud_921600 = 921600,    ///< Baud rate 921600 (Default)
+    eBaud_921600 = 921600,    ///< Baud rate 921600 (high speed)
   } eBaudConfig_t;
 
 protected:
@@ -607,19 +657,19 @@ public:
    * @fn DFRobot_HumanPose_UART
    * @brief Constructor of DFRobot_HumanPose_UART class (for UNO/ESP8266)
    * @param sSerial Pointer to SoftwareSerial object
-   * @param baud Baud rate value (e.g., 921600)
+   * @param baud Baud rate value (default UART_BAUD, 9600)
    */
-  DFRobot_HumanPose_UART(SoftwareSerial *sSerial, uint32_t baud);
+  DFRobot_HumanPose_UART(SoftwareSerial *sSerial, uint32_t baud = UART_BAUD);
 #else
   /**
    * @fn DFRobot_HumanPose_UART
    * @brief Constructor of DFRobot_HumanPose_UART class
    * @param hSerial Pointer to HardwareSerial object (typically &Serial1)
-   * @param baud Baud rate value (default is 921600)
+   * @param baud Baud rate value (default UART_BAUD, 9600)
    * @param rxpin RX pin number (default is 0, required for ESP32)
    * @param txpin TX pin number (default is 0, required for ESP32)
    */
-  DFRobot_HumanPose_UART(HardwareSerial *hSerial, uint32_t baud, uint8_t rxpin = 0, uint8_t txpin = 0);
+  DFRobot_HumanPose_UART(HardwareSerial *hSerial, uint32_t baud = UART_BAUD, uint8_t rxpin = 0, uint8_t txpin = 0);
 #endif
 
   /**
@@ -644,7 +694,7 @@ public:
    * with the device.
    *
    * @param baud Baud rate configuration of type `eBaudConfig_t`, with possible values including:
-   *             - `eBaud_9600`  - 9600 baud
+   *             - `eBaud_9600`  - 9600 baud (default UART link; UART_BAUD)
    *             - `eBaud_14400` - 14400 baud
    *             - `eBaud_19200` - 19200 baud
    *             - `eBaud_38400` - 38400 baud
@@ -652,7 +702,7 @@ public:
    *             - `eBaud_115200`- 115200 baud
    *             - `eBaud_230400`- 230400 baud
    *             - `eBaud_460800`- 460800 baud
-   *             - `eBaud_921600`- 921600 baud (Default)
+   *             - `eBaud_921600`- 921600 baud (high speed)
    * @return True if the baud rate is set successfully, otherwise false
    */
   bool setBaud(eBaudConfig_t baud);
@@ -685,4 +735,3 @@ protected:
 };
 
 #endif
-

@@ -8,7 +8,7 @@
  * @version  V1.0
  * @date  2026-02-04
  * @url         https://github.com/DFRobot/DFRobot_HumanPose
-*/
+ */
 
 #include "DFRobot_HumanPose.h"
 
@@ -44,6 +44,14 @@ static const uint16_t CMD_ID_TSIM_SET = 0x0105;
 static const uint16_t CMD_ID_TSIM_GET = 0x0106;
 static const uint16_t CMD_ID_BAUD_SET = 0x001D;
 static const uint16_t CMD_ID_BAUD_GET = 0x001E;
+
+/** Fixed GES class names (class id 0..14). Same mapping as firmware / Himax host tools. */
+static const char *const GES_CLASS_NAMES[] = {
+  "zero",    "one",     "two",     "three",   "four",
+  "five",    "six",     "dislike", "like",    "ok",
+  "stop",    "rock",    "three2",  "two_up",  "no_gesture",
+};
+static const size_t GES_CLASS_COUNT = sizeof(GES_CLASS_NAMES) / sizeof(GES_CLASS_NAMES[0]);
 
 enum HumanPoseBinType {
   HP_BIN_NULL = 0x00,
@@ -202,7 +210,7 @@ static bool hp_bin_array_to_string_list(const bin_value_view_t &arr, LearnList &
   size_t cursor = 2;
 
   for (uint16_t i = 0; i < count; ++i) {
-    bin_value_view_t v{};
+    bin_value_view_t v = { 0, 0, nullptr, 0 };
     if (!hp_parse_bin_value(body, body_len, cursor, v)) {
       return false;
     }
@@ -242,6 +250,7 @@ DFRobot_HumanPose::DFRobot_HumanPose()
     _result[i] = NULL;
 #if !DFR_HUMANPOSE_LOW_MEMORY
     _result_is_pose[i] = false;
+    _result_is_ges[i] = false;
 #endif
   }
   clear_binary_results();
@@ -375,7 +384,7 @@ bool DFRobot_HumanPose::begin()
     return false;
   }
 
-  char name[24] = "";
+  char name[DEVICE_NAME_BUF_SIZE] = { 0 };
   const eCmdCode_t name_ret = getName(name);
 #if DFR_HUMANPOSE_DEBUG
   Serial.print(F("[HPDBG] begin getName ret="));
@@ -383,7 +392,7 @@ bool DFRobot_HumanPose::begin()
   Serial.print(F(", name='"));
   Serial.print(name);
   Serial.print(F("', expected contains '"));
-  Serial.print(HUMANPOSE_NAME);
+  Serial.print(F(HUMANPOSE_NAME));
   Serial.println(F("'"));
 #endif
   if (name_ret != eOK || !strstr(name, HUMANPOSE_NAME)) {
@@ -410,7 +419,11 @@ int DFRobot_HumanPose::wait(int type, const char *cmd, uint32_t timeout)
   Serial.print(F("[HPDBG] wait begin type="));
   Serial.print(type);
   Serial.print(F(", cmd="));
-  Serial.print(cmd ? cmd : "");
+  if (cmd) {
+    Serial.print(cmd);
+  } else {
+    Serial.print(F(""));
+  }
   Serial.print(F(", timeout="));
   Serial.println(timeout);
 #endif
@@ -434,7 +447,11 @@ int DFRobot_HumanPose::wait(int type, const char *cmd, uint32_t timeout)
       Serial.print(F("[HPDBG] wait drop stale response cmd_id=0x"));
       Serial.print(_at_rsp_cmd_id, HEX);
       Serial.print(F(", expect="));
-      Serial.println(cmd ? cmd : "");
+      if (cmd) {
+        Serial.println(cmd);
+      } else {
+        Serial.println(F(""));
+      }
 #endif
       _at_rsp_ready = false;
     }
@@ -490,7 +507,11 @@ int DFRobot_HumanPose::wait(int type, const char *cmd, uint32_t timeout)
   Serial.print(F("[HPDBG] wait timeout type="));
   Serial.print(type);
   Serial.print(F(", cmd="));
-  Serial.println(cmd ? cmd : "");
+  if (cmd) {
+    Serial.println(cmd);
+  } else {
+    Serial.println(F(""));
+  }
 #endif
   return eTimedOut;
 }
@@ -681,7 +702,7 @@ bool DFRobot_HumanPose::process_binary_at_response(uint8_t flags, const uint8_t 
   if (12 + data_len <= _at_payload_len && data_len >= 8) {
     const uint8_t *data_ptr = p + 12;
     size_t off = 0;
-    bin_value_view_t root{};
+    bin_value_view_t root = { 0, 0, nullptr, 0 };
     if (hp_parse_bin_value(data_ptr, data_len, off, root)) {
       if (rsp_cmd_id == CMD_ID_NAME) {
         String v;
@@ -699,20 +720,22 @@ bool DFRobot_HumanPose::process_binary_at_response(uint8_t flags, const uint8_t 
       } else if (rsp_cmd_id == CMD_ID_MODEL_GET || rsp_cmd_id == CMD_ID_MODEL_SET) {
         uint8_t v = 0;
         if (root.type == HP_BIN_OBJECT) {
-          bin_value_view_t id_value{};
+          bin_value_view_t id_value = { 0, 0, nullptr, 0 };
           if (hp_bin_object_get(root, "id", id_value) && hp_bin_to_uint8(id_value, v)) {
             _ret_data = v;
           }
         } else if (hp_bin_to_uint8(root, v)) {
           _ret_data = v;
         }
-        if (_ret_data == (uint8_t)eHand || _ret_data == (uint8_t)ePose) {
+        if (_ret_data == (uint8_t)eHand || _ret_data == (uint8_t)ePose || _ret_data == (uint8_t)eGes) {
           _current_model = (eModel_t)_ret_data;
         }
       } else if (rsp_cmd_id == CMD_ID_HANDLIST || rsp_cmd_id == CMD_ID_POSELIST) {
         LearnList parsed;
         if (hp_bin_array_to_string_list(root, parsed)) {
+#if !DFR_HUMANPOSE_LOW_MEMORY
           _learn_list = parsed;
+#endif
           if (rsp_cmd_id == CMD_ID_HANDLIST) {
             _hand_class_list = parsed;
           } else {
@@ -723,14 +746,14 @@ bool DFRobot_HumanPose::process_binary_at_response(uint8_t flags, const uint8_t 
     }
   }
 
+  /* Always record the latest complete AT response. A stale _at_rsp_ready guard would drop
+   * a second frame (e.g. BAUD) if any prior response was not consumed yet — breaks setBaud(). */
   if (rsp_type == CMD_TYPE_RESPONSE) {
-    if (!_at_rsp_ready) {
-      _at_rsp_type = rsp_type;
-      _at_rsp_code = rsp_code;
-      _at_rsp_cmd_id = rsp_cmd_id;
-      _at_rsp_name[0] = '\0';
-      _at_rsp_ready = true;
-    }
+    _at_rsp_type = rsp_type;
+    _at_rsp_code = rsp_code;
+    _at_rsp_cmd_id = rsp_cmd_id;
+    _at_rsp_name[0] = '\0';
+    _at_rsp_ready = true;
   } else if (rsp_type == CMD_TYPE_EVENT && rsp_cmd_id == CMD_ID_INVOKE) {
     _invoke_event_code = rsp_code;
     _invoke_event_ready = true;
@@ -756,7 +779,8 @@ void DFRobot_HumanPose::clear_binary_results()
     _bin_results[i].target = 0;
 #if !DFR_HUMANPOSE_LOW_MEMORY
     for (size_t j = 0; j < sizeof(_bin_results[i].points) / sizeof(_bin_results[i].points[0]); ++j) {
-      _bin_results[i].points[j] = PointU16{};
+      _bin_results[i].points[j].x = 0;
+      _bin_results[i].points[j].y = 0;
     }
     memset(_bin_results[i].point_valid, 0, sizeof(_bin_results[i].point_valid));
 #endif
@@ -765,6 +789,15 @@ void DFRobot_HumanPose::clear_binary_results()
 
 String DFRobot_HumanPose::resolve_class_name(uint16_t id) const
 {
+  if (_current_model == eGes) {
+    if (id < GES_CLASS_COUNT) {
+      return String(GES_CLASS_NAMES[id]);
+    }
+    String s = "class_";
+    s += String((unsigned long)id);
+    return s;
+  }
+
   if (id == 0) {
     return "unknown";
   }
@@ -881,8 +914,22 @@ void DFRobot_HumanPose::finalize_binary_results()
                        target8,
                        name);
 #else
+    const bool use_ges = (_current_model == eGes);
     const bool use_pose = _bin_results[i].is_pose;
-    if (_result[i] == NULL || _result_is_pose[i] != use_pose) {
+    if (use_ges) {
+      if (_result[i] == NULL || !_result_is_ges[i]) {
+        if (_result[i] != NULL) {
+          delete _result[i];
+          _result[i] = NULL;
+        }
+        _result[i] = new Result(0, 0, 0, 0, 0, 0, "unknown");
+        if (_result[i] == NULL) {
+          continue;
+        }
+        _result_is_ges[i] = true;
+        _result_is_pose[i] = false;
+      }
+    } else if (_result[i] == NULL || _result_is_pose[i] != use_pose || _result_is_ges[i]) {
       if (_result[i] != NULL) {
         delete _result[i];
         _result[i] = NULL;
@@ -896,11 +943,21 @@ void DFRobot_HumanPose::finalize_binary_results()
         continue;
       }
       _result_is_pose[i] = use_pose;
+      _result_is_ges[i] = false;
     }
 
     const uint8_t target8 = (uint8_t)((_bin_results[i].target > 0xFFu) ? 0xFFu : _bin_results[i].target);
     const String name = resolve_class_name(_bin_results[i].target);
-    if (use_pose) {
+    if (use_ges) {
+      hp_set_result_base(_result[i],
+                         _bin_results[i].x,
+                         _bin_results[i].y,
+                         _bin_results[i].w,
+                         _bin_results[i].h,
+                         _bin_results[i].score,
+                         target8,
+                         name);
+    } else if (use_pose) {
       PoseResult *pose = (PoseResult *)_result[i];
       hp_set_result_base(pose,
                          _bin_results[i].x,
@@ -946,6 +1003,8 @@ bool DFRobot_HumanPose::process_binary_invoke(uint8_t msg_type, uint8_t flags, c
         _current_model = ePose;
       } else if (model_id == (uint16_t)eHand) {
         _current_model = eHand;
+      } else if (model_id == (uint16_t)eGes) {
+        _current_model = eGes;
       }
     }
 
@@ -971,6 +1030,8 @@ bool DFRobot_HumanPose::process_binary_invoke(uint8_t msg_type, uint8_t flags, c
         _current_model = ePose;
       } else if (_invoke_model_id == (uint16_t)eHand) {
         _current_model = eHand;
+      } else if (_invoke_model_id == (uint16_t)eGes) {
+        _current_model = eGes;
       }
     }
     return true;
@@ -1237,6 +1298,10 @@ DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::setModelType(eModel_t model)
 
   if (wait(CMD_TYPE_RESPONSE, AT_MODEL) == eOK) {
     _current_model = model;
+    if (model == eHand || model == ePose) {
+      // Binary stream has id/box only for class label; refresh model list for name mapping.
+      (void)getLearnList(model);
+    }
     return eOK;
   }
   return eTimedOut;
@@ -1324,25 +1389,30 @@ DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getKeypointOutput(uint8_t *enab
 LearnList DFRobot_HumanPose::getLearnList(eModel_t model)
 {
   char cmd[64] = { 0 };
-  _learn_list.clear();
+  // GES: fixed class names only (id 0..14); no learn list AT on device.
+  if (model == eGes) {
+    LearnList empty;
+    return empty;
+  }
   if (model == ePose) {
     snprintf(cmd, sizeof(cmd), CMD_PRE "%s" CMD_SUF, AT_POSELIST);
     write(cmd, strlen(cmd));
 
     if (wait(CMD_TYPE_RESPONSE, AT_POSELIST) == eOK) {
       LDBG("POSE OK");
-      return _learn_list;
+      return _pose_class_list;
     }
+    return _pose_class_list;
   } else {
     snprintf(cmd, sizeof(cmd), CMD_PRE "%s" CMD_SUF, AT_HANDLIST);
     write(cmd, strlen(cmd));
 
     if (wait(CMD_TYPE_RESPONSE, AT_HANDLIST) == eOK) {
       LDBG("HAND OK");
-      return _learn_list;
+      return _hand_class_list;
     }
+    return _hand_class_list;
   }
-  return _learn_list;
 }
 
 bool DFRobot_HumanPose::availableResult()
@@ -1549,7 +1619,7 @@ int DFRobot_HumanPose_I2C::write(const char *data, int len)
  * @fn DFRobot_HumanPose_UART::DFRobot_HumanPose_UART
  * @brief Constructor of DFRobot_HumanPose_UART class (for UNO/ESP8266)
  * @param sSerial Pointer to SoftwareSerial object
- * @param baud Baud rate value (e.g., 921600)
+ * @param baud Baud rate value (default UART_BAUD, 9600)
  */
 DFRobot_HumanPose_UART::DFRobot_HumanPose_UART(SoftwareSerial *sSerial, uint32_t baud)
 {
@@ -1561,11 +1631,11 @@ DFRobot_HumanPose_UART::DFRobot_HumanPose_UART(SoftwareSerial *sSerial, uint32_t
  * @fn DFRobot_HumanPose_UART::DFRobot_HumanPose_UART
  * @brief Constructor of DFRobot_HumanPose_UART class
  * @param hSerial Pointer to HardwareSerial object (typically &Serial1)
- * @param baud Baud rate value (default is 921600)
+ * @param baud Baud rate value (default UART_BAUD, 9600)
  * @param rxpin RX pin number (default is 0, required for ESP32)
  * @param txpin TX pin number (default is 0, required for ESP32)
  */
-DFRobot_HumanPose_UART::DFRobot_HumanPose_UART(HardwareSerial *hSerial, uint32_t baud = UART_BAUD, uint8_t rxpin, uint8_t txpin)
+DFRobot_HumanPose_UART::DFRobot_HumanPose_UART(HardwareSerial *hSerial, uint32_t baud, uint8_t rxpin, uint8_t txpin)
 {
   _serial = hSerial;
   __baud  = baud;
@@ -1608,11 +1678,21 @@ bool DFRobot_HumanPose_UART::begin(void)
 
 bool DFRobot_HumanPose_UART::setBaud(eBaudConfig_t baud)
 {
+  /* Clear parser state and drain UART so the BAUD reply is not mixed with stale RX / flags. */
+  _at_rsp_ready = false;
+  _invoke_event_ready = false;
+  _at_payload_len = 0;
+  rx_end = 0;
+  while (_serial->available() > 0) {
+    (void)_serial->read();
+  }
+
   char cmd[64] = { 0 };
-  snprintf(cmd, sizeof(cmd), CMD_PRE "%s=%d" CMD_SUF, AT_BAUD, (int)baud);
+  snprintf(cmd, sizeof(cmd), CMD_PRE "%s=%lu" CMD_SUF, AT_BAUD, (unsigned long)(uint32_t)baud);
   write(cmd, strlen(cmd));
 
-  if (wait(CMD_TYPE_RESPONSE, AT_BAUD) == eOK) {
+  /* SoftwareSerial / busy MCUs may need a slightly longer window for the binary ACK frame. */
+  if (wait(CMD_TYPE_RESPONSE, AT_BAUD, 2000) == eOK) {
     return true;
   }
   return false;
@@ -1644,4 +1724,3 @@ int DFRobot_HumanPose_UART::write(const char *data, int len)
 {
   return _serial->write(data, len);
 }
-

@@ -11,7 +11,7 @@
  * @version  V1.0.0
  * @date  2026-02-04
  * @url         https://github.com/DFRobot/DFRobot_HumanPose
-*/
+ */
 
 #include <Arduino.h>
 

@@ -8,7 +8,7 @@
  * @version  V1.0.0
  * @date  2026-01-09
  * @url         https://github.com/DFRobot/DFRobot_HumanPose
-*/
+ */
 
 #include <DFRobot_HumanPose.h>
 
@@ -58,10 +58,10 @@ void setup()
   delay(3000);
   // Initialize sensor, retry if failed
   while (!humanPose.begin()) {
-    Serial.println("Sensor init fail!");
+    Serial.println(F("Sensor init fail!"));
     delay(1000);
   }
-  Serial.println("Sensor init success!");
+  Serial.println(F("Sensor init success!"));
 
   // Set detection model: eHand (hand detection) or ePose (human pose detection)
   humanPose.setModelType(DFRobot_HumanPose::eHand);
@@ -71,26 +71,29 @@ void setup()
 
   // Configure detection threshold parameters
   humanPose.setIOU(45);                // Set IOU threshold (0-100), used for non-maximum suppression, default is typically 45
-  humanPose.setConfidence(80);         // Set detection confidence threshold (0-100), default is typically 60
+  humanPose.setConfidence(60);         // Set detection confidence threshold (0-100), default is typically 60
   humanPose.setLearnSimilarity(60);    // Set similarity threshold (0-100), used for matching learned targets, default is typically 60
 
   uint8_t iou=0, score=0, similarity=0;
   humanPose.getIOU(&iou);
   humanPose.getConfidence(&score);
   humanPose.getLearnSimilarity(&similarity);
-  char buf[64];
-  sprintf(buf, "iou: %d, score: %d, similarity: %d", iou, score, similarity);
-  Serial.println(buf);
+  Serial.print(F("iou: "));
+  Serial.print(iou);
+  Serial.print(F(", score: "));
+  Serial.print(score);
+  Serial.print(F(", similarity: "));
+  Serial.println(similarity);
 
   // Get learn list for specified model
   LearnList learnList = humanPose.getLearnList(DFRobot_HumanPose::eHand);
 
   // Print all learned target names
-  Serial.println("Learn list:");
+  Serial.println(F("Learn list:"));
   for (size_t i = 0; i < learnList.size(); ++i) {
-    Serial.print("id: ");
+    Serial.print(F("id: "));
     Serial.print(i);
-    Serial.print(", name: ");
+    Serial.print(F(", name: "));
     Serial.println(learnList[i].c_str());
   }
 
@@ -121,9 +124,9 @@ void loop()
         continue;
       }
       if (result->id != 0) {
-        Serial.print("ID: ");
+        Serial.print(F("ID: "));
         Serial.println(result->id);
-        Serial.print("Name: ");
+        Serial.print(F("Name: "));
         Serial.println(result->name);
         led_val = HIGH;
       }

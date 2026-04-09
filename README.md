@@ -69,11 +69,12 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
      * @fn setModelType
      * @brief Set the detection model
      *
-     * Selects which detection model to use. The sensor supports hand detection and human pose detection.
+     * Selects which detection model to use.
      *
      * @param model Model type of type `eModel_t`, with possible values including:
      *              - `eHand` - Hand detection model
      *              - `ePose` - Human pose detection model
+     *              - `eGes`  - Fixed gesture classification model (MODEL 4)
      * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
      */
     eCmdCode_t setModelType(eModel_t model);
@@ -124,6 +125,22 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
     eCmdCode_t getLearnSimilarity(uint8_t* Similarity);
 
     /**
+     * @fn setKeypointOutput
+     * @brief Configure whether INVOKE output includes keypoints.
+     * @param enable 1: include keypoints, 0: boxes only
+     * @return Status code of type `eCmdCode_t`.
+     */
+    eCmdCode_t setKeypointOutput(bool enable);
+
+    /**
+     * @fn getKeypointOutput
+     * @brief Get current keypoint output mode.
+     * @param enable Pointer to store 1(include keypoints)/0(boxes only)
+     * @return Status code of type `eCmdCode_t`.
+     */
+    eCmdCode_t getKeypointOutput(uint8_t *enable);
+
+    /**
      * @fn getLearnList
      * @brief Get the list of learned targets for the specified model
      *
@@ -133,6 +150,7 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
      * @param model Model type of type `eModel_t`:
      *              - `eHand` - Get list of learned hand gestures
      *              - `ePose` - Get list of learned poses
+     *              - `eGes`  - Not applicable (returns empty list; fixed class names only, id 0..14)
      * @return Vector of strings containing the names of learned targets. Returns empty vector on error.
      */
     LearnList getLearnList(eModel_t model);
@@ -148,7 +166,7 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
      * @fn popResult
      * @brief Get and pop the next detection result
      * @return Pointer to Result object. Returns NULL if no results are available.
-     * @note The Result object may be of type PoseResult or HandResult, depending on the currently set model type.
+     * @note Depending on current model, cast as PoseResult / HandResult / Result (`eGes` uses Result).
      *       On low-memory boards (`DFR_HUMANPOSE_LOW_MEMORY=1`), box-only output is used and popResult() returns Result base objects.
      *       After use, the result will be marked as used.
      */
@@ -163,7 +181,7 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
      * with the device.
      *
      * @param baud Baud rate configuration of type `eBaudConfig_t`, with possible values including:
-     *             - `eBaud_9600`  - 9600 baud
+     *             - `eBaud_9600`  - 9600 baud (default UART link)
      *             - `eBaud_14400` - 14400 baud
      *             - `eBaud_19200` - 19200 baud
      *             - `eBaud_38400` - 38400 baud
@@ -171,7 +189,7 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
      *             - `eBaud_115200`- 115200 baud
      *             - `eBaud_230400`- 230400 baud
      *             - `eBaud_460800`- 460800 baud
-     *             - `eBaud_921600`- 921600 baud (Default)
+     *             - `eBaud_921600`- 921600 baud (high speed)
      * @return True if the baud rate is set successfully, otherwise false
      */
     bool setBaud(eBaudConfig_t baud);

@@ -8,6 +8,8 @@
 @version V1.0
 @date   2026-02-04
 @url    https://github.com/DFRobot/DFRobot_HumanPose
+
+Binary-framed AT protocol (e.g. ``AT+TPROTO=1``); command set and MODEL semantics match the C++ driver in this repository.
 """
 
 from pinpong.board import I2C, gboard, UART
@@ -339,6 +341,26 @@ class DFRobot_HumanPose(object):
 
   MODEL_HAND = 1
   MODEL_POSE = 3
+  MODEL_GES = 4
+
+  #: Fixed GES class names (class id 0..14). Same mapping as firmware / Himax host tools.
+  GES_CLASS_NAMES = (
+    "zero",
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "dislike",
+    "like",
+    "ok",
+    "stop",
+    "rock",
+    "three2",
+    "two_up",
+    "no_gesture",
+  )
 
   _cmd_available = [0x10, 0x03, 0, 0, 0, 0]
 
@@ -413,6 +435,10 @@ class DFRobot_HumanPose(object):
       self._bin_results[i] = self._new_bin_result()
 
   def _resolve_class_name(self, cls_id: int) -> str:
+    if self._current_model == self.MODEL_GES:
+      if 0 <= cls_id < len(self.GES_CLASS_NAMES):
+        return self.GES_CLASS_NAMES[cls_id]
+      return f"class_{cls_id}"
     if cls_id == 0:
       return "unknown"
     names = self._pose_class_list if self._current_model == self.MODEL_POSE else self._hand_class_list
@@ -578,7 +604,7 @@ class DFRobot_HumanPose(object):
             v = self._bin_to_uint8(root)
           if v is not None:
             self._ret_data = v
-            if v in (self.MODEL_HAND, self.MODEL_POSE):
+            if v in (self.MODEL_HAND, self.MODEL_POSE, self.MODEL_GES):
               self._current_model = v
         elif rsp_cmd_id in (self.CMD_ID_HANDLIST, self.CMD_ID_POSELIST):
           parsed = self._bin_array_to_string_list(root)
@@ -611,7 +637,9 @@ class DFRobot_HumanPose(object):
       name = self._resolve_class_name(int(b["target"]))
       target_id = int(b["target"]) & 0xFF
 
-      if b["is_pose"]:
+      if self._current_model == self.MODEL_GES:
+        r = Result()
+      elif b["is_pose"]:
         r = PoseResult()
         r.nose = b["points"][0]
         r.leye = b["points"][1]
@@ -671,7 +699,7 @@ class DFRobot_HumanPose(object):
       ret_code = self._read_i16_le(payload, 0) if len(payload) >= 2 else 0
       if len(payload) >= 4:
         model_id = self._read_u16_le(payload, 2)
-        if model_id in (self.MODEL_HAND, self.MODEL_POSE):
+        if model_id in (self.MODEL_HAND, self.MODEL_POSE, self.MODEL_GES):
           self._current_model = model_id
 
       if not self._at_rsp_ready:
@@ -686,7 +714,7 @@ class DFRobot_HumanPose(object):
       self._clear_binary_results()
       if len(payload) >= 12:
         self._invoke_model_id = self._read_u16_le(payload, 10)
-        if self._invoke_model_id in (self.MODEL_HAND, self.MODEL_POSE):
+        if self._invoke_model_id in (self.MODEL_HAND, self.MODEL_POSE, self.MODEL_GES):
           self._current_model = self._invoke_model_id
       return True
 
@@ -908,6 +936,7 @@ class DFRobot_HumanPose(object):
     """
     @fn    get_result
     @brief Trigger one detection and wait for INVOKE response/event; results are stored and read via available_result/pop_result.
+    @n     MODEL_POSE -> PoseResult, MODEL_HAND -> HandResult, MODEL_GES -> Result (bbox + class name).
     @return CODE_OK: Success, CODE_TIMEOUT: Timeout.
     """
     self._invoke_event_ready = False
@@ -961,7 +990,7 @@ class DFRobot_HumanPose(object):
     """
     @fn    set_model_type
     @brief Set detection model type.
-    @param model: MODEL_HAND (1) for hand detection, MODEL_POSE (3) for human pose detection.
+    @param model: MODEL_HAND (1), MODEL_POSE (3), or MODEL_GES (4) fixed gesture classification.
     @return CODE_OK: Success, CODE_TIMEOUT: Timeout.
     """
     self._write(f"AT+{self.AT_MODEL}={model}\r\n")
@@ -1007,10 +1036,13 @@ class DFRobot_HumanPose(object):
     """
     @fn    get_learn_list
     @brief Get the list of learned target names for the given model.
-    @param model: MODEL_POSE or MODEL_HAND.
-    @return List of names. Returns empty list on timeout.
+    @param model: MODEL_POSE or MODEL_HAND. MODEL_GES has no learn list (returns []).
+    @n       GES uses fixed class names (id 0..14); no POSELIST/HANDLIST on device.
+    @return List of names. Returns empty list on timeout or for MODEL_GES.
     """
     self._learn_list = []
+    if model == self.MODEL_GES:
+      return []
     model_list = self.AT_POSELIST if model == self.MODEL_POSE else self.AT_HANDLIST
     self._write(f"AT+{model_list}\r\n")
     if self._wait(self.CMD_TYPE_RESPONSE, model_list) == self.CODE_OK:
@@ -1054,7 +1086,8 @@ class DFRobot_HumanPose(object):
   def pop_result(self):
     """
     @fn    pop_result
-    @brief Pop one unread result (PoseResult or HandResult depending on model); marks it as used.
+    @brief Pop one unread result; marks it as used.
+    @n     MODEL_POSE -> PoseResult, MODEL_HAND -> HandResult, MODEL_GES -> Result (bbox + class name only).
     @return One Result instance, or None if no unread result.
     """
     for res in self._results:
@@ -1172,13 +1205,13 @@ class DFRobot_HumanPose_UART(DFRobot_HumanPose):
 
   BAUD_OPTIONS = (BAUD_9600, BAUD_14400, BAUD_19200, BAUD_38400, BAUD_57600, BAUD_115200, BAUD_230400, BAUD_460800, BAUD_921600)
 
-  def __init__(self, board=None, tty_name="/dev/ttyS0", baudrate=921600):
+  def __init__(self, board=None, tty_name="/dev/ttyS0", baudrate=BAUD_9600):
     """
     @fn    __init__
     @brief Initialize UART communication.
     @param board: Board instance or tty path string (optional).
     @param tty_name: Serial port name, e.g. "/dev/ttyS0" or "/dev/ttyAMA0" on Raspberry Pi.
-    @param baudrate: Baud rate (use BAUD_* constants or integer); default 921600.
+    @param baudrate: Baud rate (use BAUD_* constants or integer); default 9600.
     """
     if isinstance(board, str):
       tty_name = board

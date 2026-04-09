@@ -8,7 +8,7 @@
  * @version  V1.0.0
  * @date  2026-01-09
  * @url         https://github.com/DFRobot/DFRobot_HumanPose
-*/
+ */
 
 #include <DFRobot_HumanPose.h>
 
@@ -51,9 +51,9 @@ DFRobot_HumanPose_I2C humanPose(&Wire, I2C_ADDR);
 static void printPoint(const char *name, const PointU16 &p)
 {
   Serial.print(name);
-  Serial.print(": ");
+  Serial.print(F(": "));
   Serial.print(p.x);
-  Serial.print(", ");
+  Serial.print(F(", "));
   Serial.println(p.y);
 }
 #endif
@@ -69,10 +69,10 @@ void setup()
 
   // Initialize sensor, retry if failed
   while (!humanPose.begin()) {
-    Serial.println("Sensor init fail!");
+    Serial.println(F("Sensor init fail!"));
     delay(1000);
   }
-  Serial.println("Sensor init success!");
+  Serial.println(F("Sensor init success!"));
 
   // Set detection model: eHand (hand detection) or ePose (human pose detection)
   humanPose.setModelType(DFRobot_HumanPose::ePose);
@@ -89,7 +89,7 @@ void loop()
 {
   // Get detection results
   if (humanPose.getResult() == DFRobot_HumanPose::eOK) {
-    Serial.println("getPoseResult success");
+    Serial.println(F("getPoseResult success"));
     while (humanPose.availableResult()) {
 #if DFR_HUMANPOSE_LOW_MEMORY
       Result *result = humanPose.popResult();
@@ -99,8 +99,10 @@ void loop()
       if (!result) {
         continue;
       }
-      Serial.println("id: " + String(result->id));
-      Serial.println("name: " + result->name);
+      Serial.print(F("id: "));
+      Serial.println(result->id);
+      Serial.print(F("name: "));
+      Serial.println(result->name);
       /**
        * @brief Score of the result (0–100).
        *
@@ -108,11 +110,16 @@ void loop()
        * - if `id == 0`: `score` is the detection confidence (probability/quality of detection).
        * - if `id != 0`: `score` is the similarity score (match degree to a learned class/gesture/pose).
        */
-      Serial.println("score: " + String(result->score));
-      Serial.println("xLeft: " + String(result->xLeft));
-      Serial.println("yTop: " + String(result->yTop));
-      Serial.println("width: " + String(result->width));
-      Serial.println("height: " + String(result->height));
+      Serial.print(F("score: "));
+      Serial.println(result->score);
+      Serial.print(F("xLeft: "));
+      Serial.println(result->xLeft);
+      Serial.print(F("yTop: "));
+      Serial.println(result->yTop);
+      Serial.print(F("width: "));
+      Serial.println(result->width);
+      Serial.print(F("height: "));
+      Serial.println(result->height);
 #if !DFR_HUMANPOSE_LOW_MEMORY
       printPoint("nose", result->nose);
       printPoint("leye", result->leye);
@@ -132,10 +139,10 @@ void loop()
       printPoint("lankle", result->lankle);
       printPoint("rankle", result->rankle);
 #endif
-      Serial.println("--------------------------------");
+      Serial.println(F("--------------------------------"));
     }
   } else {
-    Serial.println("getResult fail");
+    Serial.println(F("getResult fail"));
   }
 
   // Delay to avoid output too fast

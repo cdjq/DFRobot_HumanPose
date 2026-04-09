@@ -8,7 +8,7 @@
  * @version  V1.0.0
  * @date  2026-01-09
  * @url         https://github.com/DFRobot/DFRobot_HumanPose
-*/
+ */
 
 #include <DFRobot_HumanPose.h>
 
@@ -41,34 +41,34 @@ void setup()
   Serial.begin(115200);
   delay(1000);
 
-  Serial.println("========== DFRobot HumanPose Baud Rate Setting Example ==========");
+  Serial.println(F("========== DFRobot HumanPose Baud Rate Setting Example =========="));
 
   // Initialize sensor (using initial baud rate 9600)
-  Serial.println("Initializing sensor with initial baud rate 9600...");
+  Serial.println(F("Initializing sensor with initial baud rate 9600..."));
   while (!humanPose.begin()) {
-    Serial.println("Sensor init fail!");
+    Serial.println(F("Sensor init fail!"));
     delay(1000);
   }
-  Serial.println("Sensor init success!");
+  Serial.println(F("Sensor init success!"));
 
   // Test setting different baud rates
-  Serial.println("\nStart testing baud rate setting...");
+  Serial.println(F("\nStart testing baud rate setting..."));
 
   // Available baud rate options:
   // eBaud_9600, eBaud_14400, eBaud_19200, eBaud_38400, eBaud_57600,
   // eBaud_115200, eBaud_230400, eBaud_460800, eBaud_921600
 
-  // Example: Set baud rate to 115200
-  Serial.println("\nSetting baud rate to 115200...");
+  // Example: Set baud rate to 115200 (command is AT+BAUDRATE=115200 in binary AT mode)
+  Serial.println(F("\nSetting baud rate to 115200..."));
   if (humanPose.setBaud(DFRobot_HumanPose_UART::eBaud_115200)) {
-    Serial.println("Baud rate set successfully!");
-    Serial.println("Note: If baud rate is modified, you need to re-initialize serial port and sensor object");
-    Serial.println("And ensure the MCU's serial port baud rate matches the sensor baud rate");
+    Serial.println(F("Baud rate set successfully!"));
+    Serial.println(F("Note: Re-open the UART to the sensor at the new baud (e.g. 115200) before further AT commands."));
   } else {
-    Serial.println("Baud rate set failed!");
+    Serial.println(F("Baud rate set failed!"));
+    Serial.println(F("Tip: Use HardwareSerial if SoftwareSerial drops bytes; confirm ACK is at the same baud as before."));
   }
 
-  Serial.println("\nExample program completed");
+  Serial.println(F("\nExample program completed"));
 }
 
 /**

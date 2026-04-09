@@ -1,19 +1,20 @@
 /*!
- * @file getHandResult.ino
- * @brief Example of getting human hand detection data
- * @details This example demonstrates how to get detection results from the human hand detection sensor and print bounding box and keypoint information
+ * @file getGesResult.ino
+ * @brief Example of getting GES (fixed gesture classification) data
+ * @details This example demonstrates how to get detection results from the GES model (MODEL 4): bounding box and
+ *          class name (fixed labels, id 0..14). No keypoints and no user learn list on the device.
  * @copyright   Copyright (c) 2026 DFRobot Co.Ltd (http://www.dfrobot.com)
  * @License     The MIT License (MIT)
  * @author [thdyyl](yuanlong.yu@dfrobot.com)
  * @version  V1.0.0
- * @date  2026-01-09
+ * @date  2026-04-08
  * @url         https://github.com/DFRobot/DFRobot_HumanPose
  */
 
 #include <DFRobot_HumanPose.h>
 
 /* >> Step 1: Please choose your communication method below */
-//  #define HUMANPOSE_COMM_UART  // Use UART communication
+// #define HUMANPOSE_COMM_UART  // Use UART communication
 #define HUMANPOSE_COMM_I2C    // Use I2C communication
 
 #if defined(HUMANPOSE_COMM_UART)
@@ -37,9 +38,9 @@ DFRobot_HumanPose_UART humanPose(&Serial1, 9600);
 #endif
 #elif defined(HUMANPOSE_COMM_I2C)
 /**
-  * I2C address configuration
-  * Default I2C address is 0x3A
-  */
+ * I2C address configuration
+ * Default I2C address is 0x3A
+ */
 const uint8_t I2C_ADDR = 0x3A;
 // Initialize I2C communication: Wire, I2C address 0x3A
 DFRobot_HumanPose_I2C humanPose(&Wire, I2C_ADDR);
@@ -47,55 +48,30 @@ DFRobot_HumanPose_I2C humanPose(&Wire, I2C_ADDR);
 #error "Please define HUMANPOSE_COMM_UART or HUMANPOSE_COMM_I2C"
 #endif
 
-#if !DFR_HUMANPOSE_LOW_MEMORY
-static void printPoint(const char *name, const PointU16 &p)
-{
-  Serial.print(name);
-  Serial.print(F(": "));
-  Serial.print(p.x);
-  Serial.print(F(", "));
-  Serial.println(p.y);
-}
-#endif
-
-/**
-  * @brief Initialize function
-  * @details Set up serial communication, initialize sensor, configure detection model
-  */
 void setup()
 {
-  // Initialize serial port for debug output
   Serial.begin(115200);
 
-  // Initialize sensor, retry if failed
   while (!humanPose.begin()) {
     Serial.println(F("Sensor init fail!"));
     delay(1000);
   }
   Serial.println(F("Sensor init success!"));
 
-  // Set detection model: eHand (hand detection) or ePose (human pose detection)
-  humanPose.setModelType(DFRobot_HumanPose::eHand);
+  // Set detection model: eGes (MODEL 4) — fixed gesture classification
+  humanPose.setModelType(DFRobot_HumanPose::eGes);
 #if DFR_HUMANPOSE_LOW_MEMORY
   humanPose.setKeypointOutput(false);
 #endif
 }
 
-/**
-  * @brief Main loop function
-  * @details Continuously get detection results from sensor and print bounding box and keypoint information
-  */
 void loop()
 {
-  // Get detection results
+  // Get detection results (Result: bbox + score + id/name; no keypoints for GES)
   if (humanPose.getResult() == DFRobot_HumanPose::eOK) {
-    Serial.println(F("getHandResult success"));
+    Serial.println(F("getGesResult success"));
     while (humanPose.availableResult()) {
-#if DFR_HUMANPOSE_LOW_MEMORY
       Result *result = humanPose.popResult();
-#else
-      HandResult *result = static_cast<HandResult *>(humanPose.popResult());
-#endif
       if (!result) {
         continue;
       }
@@ -103,13 +79,6 @@ void loop()
       Serial.println(result->id);
       Serial.print(F("name: "));
       Serial.println(result->name);
-      /**
-       * @brief Score of the result (0–100).
-       *
-       * Meaning depends on `id`:
-       * - if `id == 0`: `score` is the detection confidence (probability/quality of detection).
-       * - if `id != 0`: `score` is the similarity score (match degree to a learned class/gesture/pose).
-       */
       Serial.print(F("score: "));
       Serial.println(result->score);
       Serial.print(F("xLeft: "));
@@ -120,35 +89,11 @@ void loop()
       Serial.println(result->width);
       Serial.print(F("height: "));
       Serial.println(result->height);
-#if !DFR_HUMANPOSE_LOW_MEMORY
-      printPoint("wrist", result->wrist);
-      printPoint("thumbCmc", result->thumbCmc);
-      printPoint("thumbMcp", result->thumbMcp);
-      printPoint("thumbIp", result->thumbIp);
-      printPoint("thumbTip", result->thumbTip);
-      printPoint("indexFingerMcp", result->indexFingerMcp);
-      printPoint("indexFingerPip", result->indexFingerPip);
-      printPoint("indexFingerDip", result->indexFingerDip);
-      printPoint("indexFingerTip", result->indexFingerTip);
-      printPoint("middleFingerMcp", result->middleFingerMcp);
-      printPoint("middleFingerPip", result->middleFingerPip);
-      printPoint("middleFingerDip", result->middleFingerDip);
-      printPoint("middleFingerTip", result->middleFingerTip);
-      printPoint("ringFingerMcp", result->ringFingerMcp);
-      printPoint("ringFingerPip", result->ringFingerPip);
-      printPoint("ringFingerDip", result->ringFingerDip);
-      printPoint("ringFingerTip", result->ringFingerTip);
-      printPoint("pinkyFingerMcp", result->pinkyFingerMcp);
-      printPoint("pinkyFingerPip", result->pinkyFingerPip);
-      printPoint("pinkyFingerDip", result->pinkyFingerDip);
-      printPoint("pinkyFingerTip", result->pinkyFingerTip);
-#endif
       Serial.println(F("--------------------------------"));
     }
   } else {
     Serial.println(F("getResult fail"));
   }
 
-  // Delay to avoid output too fast
-  delay(50);
+  delay(100);
 }

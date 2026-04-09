@@ -8,7 +8,7 @@
  * @version  V1.0
  * @date  2026-02-04
  * @url         https://github.com/DFRobot/DFRobot_HumanPose
-*/
+ */
 #ifndef DFROBOT_HUMAN_RESULT
 #define DFROBOT_HUMAN_RESULT
 #include <Arduino.h>
@@ -21,11 +21,11 @@ struct PointU16 {
 #ifdef ENABLE_DBG
 #define LDBG(...)                \
   {                              \
-    Serial.print("[");           \
+    Serial.print(F("["));        \
     Serial.print(__FUNCTION__);  \
-    Serial.print("(): ");        \
+    Serial.print(F("(): "));     \
     Serial.print(__LINE__);      \
-    Serial.print(" ] ");         \
+    Serial.print(F(" ] "));      \
     Serial.println(__VA_ARGS__); \
   }
 #else

@@ -69,11 +69,12 @@ HumanPose是一款可以检测人体姿态和手势的传感器库。
      * @fn setModelType
      * @brief 设置检测模型
      *
-     * 选择要使用的检测模型。传感器支持手势检测和人体姿态检测。
+     * 选择要使用的检测模型。
      *
      * @param model 类型为 `eModel_t` 的模型类型，可能的值包括：
      *              - `eHand` - 手势检测模型
      *              - `ePose` - 人体姿态检测模型
+     *              - `eGes`  - 固定手势分类模型（MODEL 4）
      * @return 类型为 `eCmdCode_t` 的状态代码。成功返回 `eOK`，否则返回错误代码。
      */
     eCmdCode_t setModelType(eModel_t model);
@@ -124,6 +125,22 @@ HumanPose是一款可以检测人体姿态和手势的传感器库。
     eCmdCode_t getLearnSimilarity(uint8_t* Similarity);
 
     /**
+     * @fn setKeypointOutput
+     * @brief 配置 INVOKE 输出是否包含关键点
+     * @param enable 1: 输出关键点, 0: 仅输出边界框
+     * @return 类型为 `eCmdCode_t` 的状态代码。
+     */
+    eCmdCode_t setKeypointOutput(bool enable);
+
+    /**
+     * @fn getKeypointOutput
+     * @brief 获取当前关键点输出模式
+     * @param enable 用于存储 1(含关键点)/0(仅边界框) 的指针
+     * @return 类型为 `eCmdCode_t` 的状态代码。
+     */
+    eCmdCode_t getKeypointOutput(uint8_t *enable);
+
+    /**
      * @fn getLearnList
      * @brief 获取指定模型的学习目标列表
      *
@@ -133,6 +150,7 @@ HumanPose是一款可以检测人体姿态和手势的传感器库。
      * @param model 类型为 `eModel_t` 的模型类型：
      *              - `eHand` - 获取学习手势列表
      *              - `ePose` - 获取学习姿态列表
+     *              - `eGes`  - 不适用（返回空列表；固定分类名，id 0..14）
      * @return 包含学习目标名称的字符串向量。出错时返回空向量。
      */
     LearnList getLearnList(eModel_t model);
@@ -148,7 +166,7 @@ HumanPose是一款可以检测人体姿态和手势的传感器库。
      * @fn popResult
      * @brief 获取并弹出下一个检测结果
      * @return 指向 Result 对象的指针。如果没有可用结果则返回 NULL。
-     * @note Result 对象可能是 PoseResult 或 HandResult 类型，取决于当前设置的模型类型。
+     * @note 按当前模型分别转换为 PoseResult / HandResult / Result（`eGes` 使用 Result）。
      *       使用完后，结果会被标记为已使用。
      */
     Result *popResult();
@@ -161,7 +179,7 @@ HumanPose是一款可以检测人体姿态和手势的传感器库。
      * 波特率，以确保与设备的稳定和有效通信。
      *
      * @param baud 类型为 `eBaudConfig_t` 的波特率配置，可能的值包括：
-     *             - `eBaud_9600`  - 9600 波特
+     *             - `eBaud_9600`  - 9600 波特（UART 默认链路）
      *             - `eBaud_14400` - 14400 波特
      *             - `eBaud_19200` - 19200 波特
      *             - `eBaud_38400` - 38400 波特
@@ -169,7 +187,7 @@ HumanPose是一款可以检测人体姿态和手势的传感器库。
      *             - `eBaud_115200`- 115200 波特
      *             - `eBaud_230400`- 230400 波特
      *             - `eBaud_460800`- 460800 波特
-     *             - `eBaud_921600`- 921600 波特（默认）
+     *             - `eBaud_921600`- 921600 波特（高速）
      * @return 如果成功设置波特率返回 true，否则返回 false
      */
     bool setBaud(eBaudConfig_t baud);
@@ -180,7 +198,7 @@ HumanPose是一款可以检测人体姿态和手势的传感器库。
     uint16_t yTop;         // 边界框左上角Y坐标
     uint16_t width;        // 边界框宽度
     uint16_t height;       // 边界框高度
-    uint8_t confidence;    // 置信度（0-100）
+    uint8_t score;         // 分数（0-100）：id==0 为检测置信度，id!=0 为与学习目标相似度
     String name;           // 检测目标名称
     bool used;             // 是否已使用标记
 
