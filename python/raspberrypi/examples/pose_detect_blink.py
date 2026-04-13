@@ -9,7 +9,7 @@
 @license     The MIT License (MIT)
 @author [thdyyl](yuanlong.yu@dfrobot.com)
 @version V1.0
-@date   2026-02-04
+@date   2026-04-13
 @url    https://github.com/DFRobot/DFRobot_HumanPose
 """
 
@@ -21,12 +21,7 @@ sys.path.append("../")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from pinpong.board import Board, Pin
-from DFRobot_HumanPose import (
-  DFRobot_HumanPose_I2C,
-  DFRobot_HumanPose_UART,
-  HandResult,
-  PoseResult,
-)
+from DFRobot_HumanPose import DFRobot_HumanPose_I2C, DFRobot_HumanPose_UART
 
 # ------------ Configuration: choose communication ------------
 USE_I2C = True  # True: I2C  /  False: UART
@@ -40,6 +35,23 @@ UART_BAUD = 9600
 
 # LED: GPIO (BCM) for indicator, e.g. external LED on GPIO17; set None to only print "LED ON/OFF"
 LED_PIN_NUM = 17
+
+TAG = "BLINK"
+SEP = "-" * 64
+NO_LEARNED_PRINT_INTERVAL = 20
+
+
+def print_learned_block(frame, results):
+  print(SEP)
+  print(f"[{TAG}][frame {frame}] learned target(s):")
+  for idx, r in enumerate(results, start=1):
+    print(f"  #{idx} id={r.id} name={r.name}")
+    print(f"    score: {r.score}")
+    print(f"    xLeft: {r.xLeft}")
+    print(f"    yTop: {r.yTop}")
+    print(f"    width: {r.width}")
+    print(f"    height: {r.height}")
+  print(SEP)
 
 
 def main():
@@ -94,9 +106,14 @@ def main():
   print("Start detecting. When a learned target is detected (id!=0), LED will turn on.")
   print("Press Ctrl+C to exit.\n")
 
+  frame = 0
+  no_learned_streak = 0
+
   try:
     while True:
+      frame += 1
       led_val = 0  # Default LED off
+      learned_hits = []
 
       if human_pose.get_result() == human_pose.CODE_OK:
         while human_pose.available_result():
@@ -105,8 +122,24 @@ def main():
             break
           # id != 0 means learned target detected (same as Arduino)
           if result.id != 0:
-            print("ID: {}  Name: {}".format(result.id, result.name))
+            learned_hits.append(result)
             led_val = 1
+        if learned_hits:
+          no_learned_streak = 0
+          print_learned_block(frame, learned_hits)
+        else:
+          no_learned_streak += 1
+          if (
+            no_learned_streak == 1
+            or no_learned_streak % NO_LEARNED_PRINT_INTERVAL == 0
+          ):
+            print(
+              "[{}] no learned target, frame streak={}".format(
+                TAG, no_learned_streak
+              )
+            )
+      else:
+        print("[{}] get_result timeout".format(TAG))
 
       if led is not None:
         led.write_digital(led_val)

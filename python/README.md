@@ -2,7 +2,7 @@
 
 * [中文版](./README_CN.md)
 
-HumanPose is a sensor capable of human pose detection, hand detection, and learned target recognition via I2C or UART.
+HumanPose modules (e.g. **SEN0670**) run inference on-device; this folder is the **Python** host driver for Raspberry Pi, using I2C or UART for human pose, hand detection, and learned target / gesture recognition.
 
 ## Product Link（https://www.dfrobot.com）
 
@@ -19,8 +19,9 @@ HumanPose is a sensor capable of human pose detection, hand detection, and learn
 
 ## Summary
 
-Provide a Python library to control the Human Pose sensor on Raspberry Pi. Supports I2C and UART communication, human pose detection (17 keypoints), hand detection (21 keypoints), and learned target / gesture recognition.  
-The driver uses binary transport protocol by default (`TPROTO=1`) and supports keypoint output switch (`TKPTS`).
+Python driver for Human Pose modules on Raspberry Pi, aligned with the Arduino library’s binary protocol. Models and protocol run on the module; the host only configures and reads results.
+
+**Keypoint conventions:** **17** body keypoints follow the **COCO 17 person** topology; **21** hand keypoints follow the **MediaPipe Hands** landmark naming. Supports I2C / UART, pose and hand models, fixed gestures, and learned-class similarity. Default binary transport (`TPROTO=1`) with optional keypoint streaming (`TKPTS`).
 
 ## Installation
 
@@ -176,8 +177,8 @@ python get_hand_result.py
 
 ## History
 
-- 2026/02/04 - Version 1.0.0 released.
+- 2026-04-13 - Version 1.0.0 released.
 
 ## Credits
 
-Written by thdyyl(yuanlong.yu@dfrobot.com), 2026.02.04 (Welcome to our [website](https://www.dfrobot.com/))
+Written by thdyyl(yuanlong.yu@dfrobot.com), 2026-04-13 (Welcome to our [website](https://www.dfrobot.com/))

@@ -6,7 +6,7 @@
  * @License     The MIT License (MIT)
  * @author [thdyyl](yuanlong.yu@dfrobot.com)
  * @version  V1.0
- * @date  2026-02-04
+ * @date  2026-04-13
  * @url         https://github.com/DFRobot/DFRobot_HumanPose
  */
 
@@ -1369,6 +1369,9 @@ DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getConfidence(uint8_t *confiden
   write(cmd, strlen(cmd));
   *confidence = 0;
   if (wait(CMD_TYPE_RESPONSE, AT_TSCORE) == eOK) {
+    if (!hp_is_percent_0_100(_ret_data)) {
+      return eIO;
+    }
     *confidence = _ret_data;
     return eOK;
   }
@@ -1383,8 +1386,11 @@ DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getIOU(uint8_t *iou)
   char cmd[64] = { 0 };
   snprintf(cmd, sizeof(cmd), CMD_PRE "%s?" CMD_SUF, AT_TIOU);
   write(cmd, strlen(cmd));
-
+  *iou = 0;
   if (wait(CMD_TYPE_RESPONSE, AT_TIOU) == eOK) {
+    if (!hp_is_percent_0_100(_ret_data)) {
+      return eIO;
+    }
     *iou = _ret_data;
     return eOK;
   }
@@ -1399,8 +1405,11 @@ DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getLearnSimilarity(uint8_t *Sim
   char cmd[64] = { 0 };
   snprintf(cmd, sizeof(cmd), CMD_PRE "%s?" CMD_SUF, AT_TSIMILARITY);
   write(cmd, strlen(cmd));
-
+  *Similarity = 0;
   if (wait(CMD_TYPE_RESPONSE, AT_TSIMILARITY) == eOK) {
+    if (!hp_is_percent_0_100(_ret_data)) {
+      return eIO;
+    }
     *Similarity = _ret_data;
     return eOK;
   }
@@ -1427,8 +1436,11 @@ DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getKeypointOutput(uint8_t *enab
   char cmd[64] = { 0 };
   snprintf(cmd, sizeof(cmd), CMD_PRE "%s?" CMD_SUF, AT_TKPTS);
   write(cmd, strlen(cmd));
-
+  *enable = 0;
   if (wait(CMD_TYPE_RESPONSE, AT_TKPTS) == eOK) {
+    if (_ret_data > 1u) {
+      return eIO;
+    }
     *enable = _ret_data ? 1 : 0;
     return eOK;
   }

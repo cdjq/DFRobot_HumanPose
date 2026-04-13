@@ -6,7 +6,7 @@
 @license The MIT License (MIT)
 @author [thdyyl](yuanlong.yu@dfrobot.com)
 @version V1.0
-@date   2026-02-04
+@date   2026-04-13
 @url    https://github.com/DFRobot/DFRobot_HumanPose
 
 Binary-framed AT protocol (e.g. ``AT+TPROTO=1``); command set and MODEL semantics match the C++ driver in this repository.
@@ -1018,10 +1018,12 @@ class DFRobot_HumanPose(object):
     """
     @fn    get_confidence
     @brief Get current confidence threshold.
-    @return Current value on success, None on timeout.
+    @return Current value 0..100 on success, None on timeout or invalid payload.
     """
     self._write(f"AT+{self.AT_TSCORE}?\r\n")
     if self._wait(self.CMD_TYPE_RESPONSE, self.AT_TSCORE) == self.CODE_OK:
+      if not self._is_percent_0_100(self._ret_data):
+        return None
       return self._ret_data
     return None
 
@@ -1029,10 +1031,12 @@ class DFRobot_HumanPose(object):
     """
     @fn    get_iou
     @brief Get current IOU threshold.
-    @return Current value on success, None on timeout.
+    @return Current value 0..100 on success, None on timeout or invalid payload.
     """
     self._write(f"AT+{self.AT_TIOU}?\r\n")
     if self._wait(self.CMD_TYPE_RESPONSE, self.AT_TIOU) == self.CODE_OK:
+      if not self._is_percent_0_100(self._ret_data):
+        return None
       return self._ret_data
     return None
 
@@ -1040,10 +1044,12 @@ class DFRobot_HumanPose(object):
     """
     @fn    get_learn_similarity
     @brief Get current learn similarity threshold.
-    @return Current value on success, None on timeout.
+    @return Current value 0..100 on success, None on timeout or invalid payload.
     """
     self._write(f"AT+{self.AT_TSIMILARITY}?\r\n")
     if self._wait(self.CMD_TYPE_RESPONSE, self.AT_TSIMILARITY) == self.CODE_OK:
+      if not self._is_percent_0_100(self._ret_data):
+        return None
       return self._ret_data
     return None
 
@@ -1082,10 +1088,12 @@ class DFRobot_HumanPose(object):
     """
     @fn    get_keypoint_output
     @brief Get whether INVOKE output includes keypoints.
-    @return 1/0 on success, None on timeout.
+    @return 1/0 on success, None on timeout or invalid payload (expect 0/1).
     """
     self._write(f"AT+{self.AT_TKPTS}?\r\n")
     if self._wait(self.CMD_TYPE_RESPONSE, self.AT_TKPTS) == self.CODE_OK:
+      if int(self._ret_data) > 1:
+        return None
       return 1 if self._ret_data else 0
     return None
 

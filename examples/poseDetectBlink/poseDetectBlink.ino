@@ -6,7 +6,7 @@
  * @License     The MIT License (MIT)
  * @author [thdyyl](yuanlong.yu@dfrobot.com)
  * @version  V1.0.0
- * @date  2026-01-09
+ * @date  2026-04-13
  * @url         https://github.com/DFRobot/DFRobot_HumanPose
  */
 
@@ -46,6 +46,28 @@ DFRobot_HumanPose_I2C humanPose(&Wire, I2C_ADDR);
 #else
 #error "Please define HUMANPOSE_COMM_UART or HUMANPOSE_COMM_I2C"
 #endif
+
+/** Print "[BLINK] no learned target..." at streak 1, then every N consecutive frames without id!=0. */
+static const uint16_t NO_LEARNED_LOG_INTERVAL = 20;
+
+static void printSeparator()
+{
+  Serial.println(F("----------------------------------------------------------------"));
+}
+
+static void printTargetFields(const Result *result)
+{
+  Serial.print(F("    score: "));
+  Serial.println(result->score);
+  Serial.print(F("    xLeft: "));
+  Serial.println(result->xLeft);
+  Serial.print(F("    yTop: "));
+  Serial.println(result->yTop);
+  Serial.print(F("    width: "));
+  Serial.println(result->width);
+  Serial.print(F("    height: "));
+  Serial.println(result->height);
+}
 
 /**
  * @brief Initialize function
@@ -109,10 +131,17 @@ void setup()
  */
 void loop()
 {
+  static uint32_t s_frame                     = 0;
+  static uint32_t no_learned_target_streak   = 0;
+
   uint8_t led_val = LOW;    // LED state, default is off
+
+  ++s_frame;
 
   // Get detection results
   if (humanPose.getResult() == DFRobot_HumanPose::eOK) {
+    bool     printed_header = false;
+    uint16_t idx            = 0;
     // Iterate through all detected targets
     while (humanPose.availableResult()) {
 #if DFR_HUMANPOSE_LOW_MEMORY
@@ -124,13 +153,37 @@ void loop()
         continue;
       }
       if (result->id != 0) {
-        Serial.print(F("ID: "));
-        Serial.println(result->id);
-        Serial.print(F("Name: "));
-        Serial.println(result->name);
         led_val = HIGH;
+        if (!printed_header) {
+          no_learned_target_streak = 0;
+          printSeparator();
+          Serial.print(F("[BLINK][frame "));
+          Serial.print(s_frame);
+          Serial.println(F("] learned target(s):"));
+          printed_header = true;
+        }
+        ++idx;
+        Serial.print(F("  #"));
+        Serial.print(idx);
+        Serial.print(F(" id="));
+        Serial.print(result->id);
+        Serial.print(F(" name="));
+        Serial.println(result->name);
+        printTargetFields(result);
       }
     }
+    if (!printed_header) {
+      ++no_learned_target_streak;
+      if (no_learned_target_streak == 1u
+          || (no_learned_target_streak % NO_LEARNED_LOG_INTERVAL) == 0u) {
+        Serial.print(F("[BLINK] no learned target, frame streak="));
+        Serial.println(no_learned_target_streak);
+      }
+    } else {
+      printSeparator();
+    }
+  } else {
+    Serial.println(F("[BLINK] get_result timeout"));
   }
 
   // Control LED state based on detection results

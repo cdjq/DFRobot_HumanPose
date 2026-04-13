@@ -6,7 +6,7 @@
  * @License     The MIT License (MIT)
  * @author [thdyyl](yuanlong.yu@dfrobot.com)
  * @version  V1.0.0
- * @date  2026-01-09
+ * @date  2026-04-13
  * @url         https://github.com/DFRobot/DFRobot_HumanPose
  */
 
@@ -47,9 +47,13 @@ DFRobot_HumanPose_I2C humanPose(&Wire, I2C_ADDR);
 #error "Please define HUMANPOSE_COMM_UART or HUMANPOSE_COMM_I2C"
 #endif
 
+/** Print "[HAND] no target..." at streak 1, then every N consecutive empty frames. */
+static const uint16_t NO_TARGET_LOG_INTERVAL = 20;
+
 #if !DFR_HUMANPOSE_LOW_MEMORY
 static void printPoint(const char *name, const PointU16 &p)
 {
+  Serial.print(F("    "));
   Serial.print(name);
   Serial.print(F(": "));
   Serial.print(p.x);
@@ -57,6 +61,25 @@ static void printPoint(const char *name, const PointU16 &p)
   Serial.println(p.y);
 }
 #endif
+
+static void printSeparator()
+{
+  Serial.println(F("----------------------------------------------------------------"));
+}
+
+static void printTargetFields(const Result *result)
+{
+  Serial.print(F("    score: "));
+  Serial.println(result->score);
+  Serial.print(F("    xLeft: "));
+  Serial.println(result->xLeft);
+  Serial.print(F("    yTop: "));
+  Serial.println(result->yTop);
+  Serial.print(F("    width: "));
+  Serial.println(result->width);
+  Serial.print(F("    height: "));
+  Serial.println(result->height);
+}
 
 /**
   * @brief Initialize function
@@ -87,9 +110,14 @@ void setup()
   */
 void loop()
 {
-  // Get detection results
+  static uint32_t s_frame           = 0;
+  static uint32_t no_target_streak = 0;
+
+  ++s_frame;
+
   if (humanPose.getResult() == DFRobot_HumanPose::eOK) {
-    Serial.println(F("getHandResult success"));
+    bool     any = false;
+    uint16_t idx = 0;
     while (humanPose.availableResult()) {
 #if DFR_HUMANPOSE_LOW_MEMORY
       Result *result = humanPose.popResult();
@@ -99,9 +127,20 @@ void loop()
       if (!result) {
         continue;
       }
-      Serial.print(F("id: "));
-      Serial.println(result->id);
-      Serial.print(F("name: "));
+      if (!any) {
+        no_target_streak = 0;
+        printSeparator();
+        Serial.print(F("[HAND][frame "));
+        Serial.print(s_frame);
+        Serial.println(F("] target(s):"));
+        any = true;
+      }
+      ++idx;
+      Serial.print(F("  #"));
+      Serial.print(idx);
+      Serial.print(F(" id="));
+      Serial.print(result->id);
+      Serial.print(F(" name="));
       Serial.println(result->name);
       /**
        * @brief Score of the result (0–100).
@@ -110,16 +149,7 @@ void loop()
        * - if `id == 0`: `score` is the detection confidence (probability/quality of detection).
        * - if `id != 0`: `score` is the similarity score (match degree to a learned class/gesture/pose).
        */
-      Serial.print(F("score: "));
-      Serial.println(result->score);
-      Serial.print(F("xLeft: "));
-      Serial.println(result->xLeft);
-      Serial.print(F("yTop: "));
-      Serial.println(result->yTop);
-      Serial.print(F("width: "));
-      Serial.println(result->width);
-      Serial.print(F("height: "));
-      Serial.println(result->height);
+      printTargetFields(result);
 #if !DFR_HUMANPOSE_LOW_MEMORY
       printPoint("wrist", result->wrist);
       printPoint("thumbCmc", result->thumbCmc);
@@ -143,10 +173,19 @@ void loop()
       printPoint("pinkyFingerDip", result->pinkyFingerDip);
       printPoint("pinkyFingerTip", result->pinkyFingerTip);
 #endif
-      Serial.println(F("--------------------------------"));
+    }
+    if (!any) {
+      ++no_target_streak;
+      if (no_target_streak == 1u
+          || (no_target_streak % NO_TARGET_LOG_INTERVAL) == 0u) {
+        Serial.print(F("[HAND] no target, frame streak="));
+        Serial.println(no_target_streak);
+      }
+    } else {
+      printSeparator();
     }
   } else {
-    Serial.println(F("getResult fail"));
+    Serial.println(F("[HAND] get_result timeout"));
   }
 
   // Delay to avoid output too fast

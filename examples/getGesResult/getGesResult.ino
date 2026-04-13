@@ -7,7 +7,7 @@
  * @License     The MIT License (MIT)
  * @author [thdyyl](yuanlong.yu@dfrobot.com)
  * @version  V1.0.0
- * @date  2026-04-08
+ * @date  2026-04-13
  * @url         https://github.com/DFRobot/DFRobot_HumanPose
  */
 
@@ -48,6 +48,28 @@ DFRobot_HumanPose_I2C humanPose(&Wire, I2C_ADDR);
 #error "Please define HUMANPOSE_COMM_UART or HUMANPOSE_COMM_I2C"
 #endif
 
+/** Print "[GES] no target..." at streak 1, then every N consecutive empty frames. */
+static const uint16_t NO_TARGET_LOG_INTERVAL = 20;
+
+static void printSeparator()
+{
+  Serial.println(F("----------------------------------------------------------------"));
+}
+
+static void printTargetFields(const Result *result)
+{
+  Serial.print(F("    score: "));
+  Serial.println(result->score);
+  Serial.print(F("    xLeft: "));
+  Serial.println(result->xLeft);
+  Serial.print(F("    yTop: "));
+  Serial.println(result->yTop);
+  Serial.print(F("    width: "));
+  Serial.println(result->width);
+  Serial.print(F("    height: "));
+  Serial.println(result->height);
+}
+
 void setup()
 {
   Serial.begin(115200);
@@ -67,32 +89,49 @@ void setup()
 
 void loop()
 {
+  static uint32_t s_frame           = 0;
+  static uint32_t no_target_streak = 0;
+
+  ++s_frame;
+
   // Get detection results (Result: bbox + score + id/name; no keypoints for GES)
   if (humanPose.getResult() == DFRobot_HumanPose::eOK) {
-    Serial.println(F("getGesResult success"));
+    bool     any = false;
+    uint16_t idx = 0;
     while (humanPose.availableResult()) {
       Result *result = humanPose.popResult();
       if (!result) {
         continue;
       }
-      Serial.print(F("id: "));
-      Serial.println(result->id);
-      Serial.print(F("name: "));
+      if (!any) {
+        no_target_streak = 0;
+        printSeparator();
+        Serial.print(F("[GES][frame "));
+        Serial.print(s_frame);
+        Serial.println(F("] target(s):"));
+        any = true;
+      }
+      ++idx;
+      Serial.print(F("  #"));
+      Serial.print(idx);
+      Serial.print(F(" id="));
+      Serial.print(result->id);
+      Serial.print(F(" name="));
       Serial.println(result->name);
-      Serial.print(F("score: "));
-      Serial.println(result->score);
-      Serial.print(F("xLeft: "));
-      Serial.println(result->xLeft);
-      Serial.print(F("yTop: "));
-      Serial.println(result->yTop);
-      Serial.print(F("width: "));
-      Serial.println(result->width);
-      Serial.print(F("height: "));
-      Serial.println(result->height);
-      Serial.println(F("--------------------------------"));
+      printTargetFields(result);
+    }
+    if (!any) {
+      ++no_target_streak;
+      if (no_target_streak == 1u
+          || (no_target_streak % NO_TARGET_LOG_INTERVAL) == 0u) {
+        Serial.print(F("[GES] no target, frame streak="));
+        Serial.println(no_target_streak);
+      }
+    } else {
+      printSeparator();
     }
   } else {
-    Serial.println(F("getResult fail"));
+    Serial.println(F("[GES] get_result timeout"));
   }
 
   delay(100);

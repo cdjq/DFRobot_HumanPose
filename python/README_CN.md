@@ -2,7 +2,7 @@
 
 * [English](./README.md)
 
-HumanPose 是一款可通过 I2C 或 UART 进行人体姿态检测、手部检测及已学习目标识别的传感器。
+HumanPose 模组（如 **SEN0670**）在端侧完成推理；本目录为树莓派等主机上的 **Python** 驱动，通过 I2C 或 UART 与模组通信，实现人体姿态、手部检测及已学习目标识别。
 
 ## 产品链接（https://www.dfrobot.com）
 
@@ -19,7 +19,9 @@ HumanPose 是一款可通过 I2C 或 UART 进行人体姿态检测、手部检�
 
 ## 摘要
 
-本库为树莓派上的 Human Pose 传感器提供 Python 驱动。支持 I2C 与 UART 通信、人体姿态检测（17 个关键点）、手部检测（21 个关键点）以及已学习目标/手势识别。
+本库为树莓派上的 Human Pose 模组提供 Python 驱动，与 Arduino 库共用同一套二进制协议思路。模型与协议在模组侧运行；主机侧仅做配置与取数。
+
+**关键点约定：** 人体 **17 点** 顺序与 **COCO 人体 17 关键点** 拓扑一致；手部 **21 点** 与 **MediaPipe Hands** 的 21 点骨架命名一致，便于与常见可视化与算法示例对接。支持 I2C / UART、姿态与手部检测、固定手势及学习类相似度；默认二进制传输（`TPROTO=1`），并可开关关键点输出（`TKPTS`）。
 
 ## 安装
 
@@ -162,8 +164,8 @@ python get_hand_result.py
 
 ## 历史
 
-- 2026/02/04 - 发布版本 1.0.0。
+- 2026-04-13 - 发布版本 1.0.0。
 
 ## 致谢
 
-Written by thdyyl(yuanlong.yu@dfrobot.com), 2026.02.04 (欢迎访问 [官网](https://www.dfrobot.com/))
+Written by thdyyl(yuanlong.yu@dfrobot.com), 2026-04-13 (欢迎访问 [官网](https://www.dfrobot.com/))

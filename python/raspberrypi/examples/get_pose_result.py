@@ -9,7 +9,7 @@
 @license     The MIT License (MIT)
 @author [thdyyl](yuanlong.yu@dfrobot.com)
 @version V1.0
-@date   2026-02-04
+@date   2026-04-13
 @url    https://github.com/DFRobot/DFRobot_HumanPose
 """
 
@@ -45,6 +45,57 @@ canvas = tk.Canvas(root, width=W, height=H, bg="white")
 canvas.pack()
 
 COLORS = ["red", "blue", "green", "orange", "purple", "brown"]
+
+TAG = "POSE"
+SEP = "-" * 64
+# No-target log: streak 1, then every N consecutive empty polls (same idea as Arduino examples).
+NO_TARGET_PRINT_INTERVAL = 20
+
+
+POSE_KEYPOINT_ATTRS = (
+  "nose",
+  "leye",
+  "reye",
+  "lear",
+  "rear",
+  "lshoulder",
+  "rshoulder",
+  "lelbow",
+  "relbow",
+  "lwrist",
+  "rwrist",
+  "lhip",
+  "rhip",
+  "lknee",
+  "rknee",
+  "lankle",
+  "rankle",
+)
+
+
+def print_pose_keypoints(r):
+  """Print all 17 body keypoints (same order as driver / canvas)."""
+  if not isinstance(r, PoseResult):
+    return
+  for attr in POSE_KEYPOINT_ATTRS:
+    p = getattr(r, attr, None)
+    if p is None:
+      continue
+    print(f"    {attr}: {p.x}, {p.y}")
+
+
+def print_target_block(frame, results):
+  print(SEP)
+  print(f"[{TAG}][frame {frame}] target(s):")
+  for idx, r in enumerate(results, start=1):
+    print(f"  #{idx} id={getattr(r, 'id', 0)} name={getattr(r, 'name', '')}")
+    print(f"    score: {getattr(r, 'score', 0)}")
+    print(f"    xLeft: {getattr(r, 'xLeft', 0)}")
+    print(f"    yTop: {getattr(r, 'yTop', 0)}")
+    print(f"    width: {getattr(r, 'width', 0)}")
+    print(f"    height: {getattr(r, 'height', 0)}")
+    print_pose_keypoints(r)
+  print(SEP)
 
 
 def draw_point(x, y, color="black", label=None):
@@ -168,16 +219,30 @@ class ProtocolThread(threading.Thread):
   def __init__(self, hp):
     super().__init__(daemon=True)
     self.hp = hp
+    self.frame = 0
+    self.no_target_streak = 0
 
   def run(self):
     while True:
-      self.hp.get_result()
+      self.frame += 1
       results = []
-      while self.hp.available_result():
-        r = self.hp.pop_result()
-        if r:
-          results.append(r)
-          print(r)
+      if self.hp.get_result() == self.hp.CODE_OK:
+        while self.hp.available_result():
+          r = self.hp.pop_result()
+          if r:
+            results.append(r)
+        if not results:
+          self.no_target_streak += 1
+          if (
+            self.no_target_streak == 1
+            or self.no_target_streak % NO_TARGET_PRINT_INTERVAL == 0
+          ):
+            print(f"[{TAG}] no target, frame streak={self.no_target_streak}")
+        else:
+          self.no_target_streak = 0
+          print_target_block(self.frame, results)
+      else:
+        print(f"[{TAG}] get_result timeout")
       root.after(0, draw_results, results)
       time.sleep(0.02)
 
@@ -191,8 +256,9 @@ if __name__ == "__main__":
     print(f"[COMM] UART tty={UART_TTY}, baud={UART_BAUD}")
 
   if not humanpose.begin():
-    print("begin failed")
+    print("Sensor init fail!")
   else:
+    print("Sensor init success!")
     humanpose.set_model_type(humanpose.MODEL_POSE)
     ProtocolThread(humanpose).start()
     root.mainloop()

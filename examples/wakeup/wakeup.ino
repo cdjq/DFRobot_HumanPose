@@ -1,15 +1,21 @@
 /*!
  * @file wakeup.ino
- * @brief Wakeup pin control example
- * @details This example demonstrates how to control the HumanPose sensor wakeup (enable) pin
- *          using a digital GPIO. LOW level = power off, HIGH level = power on.
- *          After powering on the sensor, you can run other examples (getPoseResult / getHandResult)
- *          to get detection results.
+ * @brief Wakeup (EN) pin control — with a concrete usage scenario
+ * @details
+ *   **User scenario (why this pin exists)**\n
+ *   Many installations need to cut sensor power or put the module in standby when nobody is
+ *   around (save energy on battery, reduce heat, or meet a “night mode” requirement). The EN /
+ *   wakeup pin lets the host MCU **hard‑disable** the sensor without unplugging cables.\n
+ *   Typical flow: **LOW** = sensor off / not responding on I2C‑UART; **HIGH** = sensor on, then you
+ *   run pose/hand/gesture examples or your own code.\n
+ *   This sketch **simulates one “close shop → open shop” cycle**: pull EN low, wait, pull EN high.
+ *   After that, keep EN high and switch to `getPoseResult` / `getHandResult` / `getGesResult` on the
+ *   same wiring (or another MCU that shares GND and respects EN).\n
  * @copyright   Copyright (c) 2026 DFRobot Co.Ltd (http://www.dfrobot.com)
  * @License     The MIT License (MIT)
  * @author [thdyyl](yuanlong.yu@dfrobot.com)
- * @version  V1.0.0
- * @date  2026-02-04
+ * @version  V1.0.1
+ * @date  2026-04-13
  * @url         https://github.com/DFRobot/DFRobot_HumanPose
  */
 
@@ -22,73 +28,91 @@
  *     GND       |        GND           |         GND          |   GND   |   GND   |   GND   |
  *     EN/WAKE   |   WAKEUP_PIN (D7)    |    any digital pin   |    7    |   D6    |  IO26   |
  * ----------------------------------------------------------------------------------------------------------------------*/
+
+/** Set to 1: board LED blinks slowly while EN is held HIGH (visual “program running, sensor enabled”). */
+#define WAKEUP_DEMO_LED_HEARTBEAT 1
+
 /**
- * @brief GPIO pin used to control the sensor wakeup (enable) pin.
- * @note Change this to the digital pin that you actually connected to the sensor wakeup/EN pin.
+ * @brief GPIO connected to sensor EN / wakeup (output).
+ * @note Must match your actual wiring.
  */
 const int WAKEUP_PIN = 7;
 
-/**
- * @brief Delay time between power off and power on, in milliseconds.
- */
+/** Pause between OFF and ON (ms); increase if your board needs a longer power-down settle time. */
 const unsigned long POWER_CYCLE_DELAY_MS = 1000;
 
 // ------------------------ Helper functions ------------------------
-/**
- * @brief Power off the HumanPose sensor.
- * @details LOW level on wakeup pin means disconnect / power off / disable the sensor.
- */
 void sensorPowerOff()
 {
   digitalWrite(WAKEUP_PIN, LOW);
   Serial.println(F("Sensor OFF (wakeup=LOW, sensor disabled)"));
 }
 
-/**
- * @brief Power on the HumanPose sensor.
- * @details HIGH level on wakeup pin means connect / power on / enable the sensor.
- */
 void sensorPowerOn()
 {
   digitalWrite(WAKEUP_PIN, HIGH);
   Serial.println(F("Sensor ON (wakeup=HIGH, sensor enabled)"));
 }
 
+static void printScenario()
+{
+  Serial.println();
+  Serial.println(F("========== Scenario (when to use EN / wakeup) =========="));
+  Serial.println(F("Example: kiosk / classroom / battery project — turn the sensor off when idle,"));
+  Serial.println(F("turn it on before business hours or when someone approaches. EN=LOW cuts"));
+  Serial.println(F("the sensor side; EN=HIGH lets I2C/UART examples talk to the module."));
+  Serial.println(F("=========================================================="));
+  Serial.println();
+  Serial.println(F("[Step 1] Configure EN as OUTPUT, start LOW (sensor off)."));
+  Serial.println(F("[Step 2] Wait so the module fully powers down."));
+  Serial.println(F("[Step 3] Drive EN HIGH (sensor on) — ready for detection sketches."));
+  Serial.println();
+  Serial.println(F("Next: upload & run getPoseResult / getHandResult / getGesResult"));
+  Serial.println(F("(same GND; keep EN HIGH while using those examples)."));
+  Serial.println();
+}
+
 // ------------------------ Arduino setup/loop ------------------------
-/**
- * @brief Initialize serial port and wakeup pin.
- * @details Configure wakeup pin as output, power off then power on the sensor.
- */
 void setup()
 {
-  // Initialize serial for debug output
   Serial.begin(115200);
   while (!Serial) {
-    ;    // wait for serial port to connect. Needed for some boards (e.g. Leonardo)
+    ;
   }
 
-  Serial.println(F("DFRobot HumanPose wakeup demo"));
+  printScenario();
 
-  // Configure wakeup pin as output and default to LOW (sensor off)
   pinMode(WAKEUP_PIN, OUTPUT);
+#if WAKEUP_DEMO_LED_HEARTBEAT
+  pinMode(LED_BUILTIN, OUTPUT);
+#endif
+
   sensorPowerOff();
   delay(POWER_CYCLE_DELAY_MS);
 
-  // Then power on the sensor
   sensorPowerOn();
-  Serial.println(F("You can now run pose/hand result examples to read data."));
+
+  Serial.println(F("--- EN is now HIGH: you can open another example to read pose/hand/GES. ---"));
+  Serial.println(F("(This sketch keeps EN high; optional LED heartbeat = program alive.)"));
+  Serial.println();
 }
 
-/**
- * @brief Main loop (optional additional power cycling demo).
- * @details By default, it keeps the sensor powered ON. If you want to
- *          periodically power-cycle the sensor, you can uncomment the code below.
- */
 void loop()
 {
-  // Keep sensor ON and do nothing here.
-  // If you want to periodically toggle power, uncomment this block:
-  /*
+#if WAKEUP_DEMO_LED_HEARTBEAT
+  static uint32_t last_ms;
+  static bool     led_on;
+  uint32_t        now = millis();
+  if (now - last_ms >= 1500) {
+    last_ms   = now;
+    led_on    = !led_on;
+    digitalWrite(LED_BUILTIN, led_on ? HIGH : LOW);
+  }
+#else
+  delay(1000);
+#endif
+
+  /* Optional: periodic power cycling for stress test — uncomment:
   sensorPowerOff();
   delay(POWER_CYCLE_DELAY_MS);
   sensorPowerOn();

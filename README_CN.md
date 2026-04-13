@@ -2,7 +2,7 @@
 
 * [English Version](./README.md)
 
-HumanPose是一款可以检测人体姿态和手势的传感器库。
+HumanPose 是面向 **SEN0670** 系列等端侧人体感知模组的通信与控制库。算法与推理在模组内完成；本库在主机侧（Arduino 等）通过 **I2C / UART** 与模组交互，负责配置参数、拉取实时检测结果。
 
 ## 目录
 
@@ -15,7 +15,14 @@ HumanPose是一款可以检测人体姿态和手势的传感器库。
 
 ## 简介
 
-提供用于控制HumanPose传感器的Arduino库。这是一个可以通过 I2C/UART 端口控制的人体姿态检测传感器。具有人体姿态检测、手势检测等功能，支持实时获取检测结果，包括关键点坐标、边界框信息等。
+本仓库提供 **Arduino** 库，用于控制基于自研方案的 HumanPose 模组。与仅上传图像到云端的产品不同，该模组在本地完成检测，延迟更低、部署更简单。
+
+**关键点数据与常见生态对齐，便于二次开发与可视化：**
+
+- **人体姿态（17 点）**：关节拓扑与业界常用的 **COCO 人体 17 关键点**一致（鼻、双眼、双耳、双肩、双肘、双腕、双髋、双膝、双踝）。输出为图像坐标系下的二维点，可与遵循同一拓扑的标注与工具链对接。
+- **手部（21 点）**：关节命名与 **MediaPipe Hands** 所采用的 21 点手部骨架一致（腕部、拇指四节、食指至小指各 MCP / PIP / DIP / Tip），便于手部骨架绘制与下游手势逻辑。
+
+**能力概览：** 人体姿态、手部检测、固定手势分类，以及基于学习样本的相似度匹配等；结果中可包含 **边界框、关键点坐标、置信度 / 相似度** 等字段。设备端行为与升级请以产品说明为准；本库侧为二进制协议封装，不依赖 ArduinoJson。
 
 ## 安装
 
@@ -249,20 +256,20 @@ HumanPose是一款可以检测人体姿态和手势的传感器库。
 
 | MCU                | 表现良好 | 表现异常 | 未测试 | 备注 |
 | ------------------ | :------: | :------: | :-----: | ---- |
-| Arduino Uno        |          |     √    |         |                     |
-| Arduino Leonardo   |          |     √    |         |                     |
-| Arduino MEGA2560   |          |     √    |         |                     |
-| FireBeetle-ESP32-E |    √     |          |         |                     |
-| ESP8266            |    √     |          |         | 需要 SoftwareSerial |
+| Arduino Uno        |    √     |          |         |                     |
+| Arduino Leonardo   |    √     |          |         |                     |
+| Arduino MEGA2560   |    √     |          |         |                     |
+| FireBeetle-ESP32   |    √     |          |         |                     |
+| ESP8266            |    √     |          |         |                     |
 | FireBeetle-M0      |    √     |          |         |                     |
 | Micro:bit          |    √     |          |         |                     |
 | Raspberry Pi       |    √     |          |         |                     |
 
 ## 历史
 
-- Date 2026-01-09
+- Date 2026-04-13
 - Version V1.0.0
 
 ## 贡献者
 
-Written by DFRobot, 2026.01.09 (Welcome to our [website](https://www.dfrobot.com/))
+Written by thdyyl(yuanlong.yu@dfrobot.com), 2026-04-13 (Welcome to our [website](https://www.dfrobot.com/))

@@ -10,7 +10,7 @@
 @license     The MIT License (MIT)
 @author [thdyyl](yuanlong.yu@dfrobot.com)
 @version V1.0
-@date   2026-02-04
+@date   2026-04-13
 @url    https://github.com/DFRobot/DFRobot_HumanPose
 """
 

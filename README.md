@@ -1,8 +1,8 @@
 # DFRobot_HumanPose
 
-* [Chinese Version](./README_CN.md)
+* [中文版本](./README_CN.md)
 
-HumanPose is a sensor library that can detect human poses and gestures.
+HumanPose is a host-side library for DFRobot’s on-device Human Pose modules (e.g. **SEN0670**). Inference runs on the module; this library talks over **I2C / UART** from the host (Arduino, etc.) to configure the sensor and pull detection results.
 
 ## Table of Contents
 
@@ -15,7 +15,14 @@ HumanPose is a sensor library that can detect human poses and gestures.
 
 ## Description
 
-Arduino library for controlling HumanPose sensor. This is a human pose detection sensor that can be controlled through I2C/UART ports. such as human pose detection, hand detection, etc. It supports real-time detection results including keypoint coordinates, bounding box information, and more.
+This repository provides an **Arduino** library for HumanPose modules built on DFRobot’s in-house pipeline. Detection runs on the module itself (lower latency, simpler deployment than cloud-only flows).
+
+**Keypoint layouts match widely used conventions so you can plug into common tooling:**
+
+- **Body pose (17 keypoints)** — Topology matches the common **COCO 17 person keypoints** (nose, eyes, ears, shoulders, elbows, wrists, hips, knees, ankles). Points are 2D coordinates in the image frame, aligned with that ordering for labeling and visualization.
+- **Hand (21 keypoints)** — Naming follows the **MediaPipe Hands** 21-landmark skeleton (wrist, thumb chain, and index–pinky MCP / PIP / DIP / Tip), which is convenient for drawing hand skeletons and gesture logic.
+
+**Features** include human pose, hand detection, fixed gesture classes, and learned-class similarity; outputs may include **bounding boxes, keypoints, confidence / similarity scores**, and more. On-module behavior and updates follow the product documentation; this library is a binary-protocol client and does **not** require ArduinoJson.
 
 ## Installation
 
@@ -258,20 +265,20 @@ Arduino library for controlling HumanPose sensor. This is a human pose detection
 
 | MCU                | Work Well | Work Wrong | Untested | Remarks |
 | ------------------ | :--------: | :--------: | :------: | ------- |
-| Arduino Uno        |            |     √      |          |                         |
-| Arduino Leonardo   |            |     √      |          |                         |
-| Arduino MEGA2560   |            |     √      |          |                         |
-| FireBeetle-ESP32-E |     √      |            |          |                         |
-| ESP8266            |     √      |            |          | Requires SoftwareSerial |
-| FireBeetle-M0      |     √      |            |          |                         |
-| Micro:bit          |     √      |            |          |                         |
-| Raspberry Pi       |     √      |            |          |                         |
+| Arduino Uno        |    √     |          |         |                     |
+| Arduino Leonardo   |    √     |          |         |                     |
+| Arduino MEGA2560   |    √     |          |         |                     |
+| FireBeetle-ESP32   |    √     |          |         |                     |
+| ESP8266            |    √     |          |         |                     |
+| FireBeetle-M0      |    √     |          |         |                     |
+| Micro:bit          |    √     |          |         |                     |
+| Raspberry Pi       |    √     |          |         |                     |
 
 ## History
 
-- Date 2026-01-09
+- Date 2026-04-13
 - Version V1.0.0
 
 ## Credits
 
-Written by DFRobot, 2026.01.09 (Welcome to our [website](https://www.dfrobot.com/))
+Written by thdyyl(yuanlong.yu@dfrobot.com), 2026-04-13 (Welcome to our [website](https://www.dfrobot.com/))
