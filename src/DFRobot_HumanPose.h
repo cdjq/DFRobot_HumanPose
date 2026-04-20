@@ -284,7 +284,7 @@ public:
   typedef enum {
     eHand = 1,    ///< Hand detection model
     ePose = 3,    ///< Human pose detection model
-    eGes  = 4,    ///< GES: fixed gesture classification (MODEL 4); no user learn list on device
+    eGesture  = 4,    ///< GES: fixed gesture classification (MODEL 4); no user learn list on device
   } eModel_t;
 
 protected:
@@ -426,7 +426,7 @@ public:
    * @brief Get detection results from the sensor
    * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
    * @note After calling this function, the detection results will be stored in the internal result array.
-   *       Use availableResult() and popResult(). `ePose` -> PoseResult, `eHand` -> HandResult, `eGes` -> Result (bbox + class name).
+   *       Use availableResult() and popResult(). `ePose` -> PoseResult, `eHand` -> HandResult, `eGesture` -> Result (bbox + class name).
    */
   eCmdCode_t getResult();
 
@@ -464,7 +464,7 @@ public:
    * @param model Model type of type `eModel_t`, with possible values including:
    *              - `eHand` - Hand detection model
    *              - `ePose` - Human pose detection model
-   *              - `eGes`  - GES fixed gesture classification (MODEL 4)
+   *              - `eGesture`  - GES fixed gesture classification (MODEL 4)
    * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
    */
   eCmdCode_t setModelType(eModel_t model);
@@ -476,7 +476,7 @@ public:
    * Sets the similarity threshold used when matching detected objects against learned targets.
    * This parameter is used for gesture recognition and learned pose matching.
    *
-   * @param Similarity Similarity threshold value (0-100). Default is typically 60.
+   * @param Similarity Similarity threshold value (0-100). Default is typically 80.
    * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
    */
   eCmdCode_t setLearnSimilarity(uint8_t Similarity);
@@ -540,8 +540,8 @@ public:
    * @param model Model type of type `eModel_t`:
    *              - `eHand` - Get list of learned hand gestures
    *              - `ePose` - Get list of learned poses
-   *              - `eGes`  - Not applicable (returns empty list; fixed class names only, id 0..14)
-   * @return Vector of learned names. Empty for `eGes` or on error.
+   *              - `eGesture`  - Not applicable (returns empty list; fixed class names only, id 0..14)
+   * @return Vector of learned names. Empty for `eGesture` or on error.
    */
   LearnList getLearnList(eModel_t model);
 

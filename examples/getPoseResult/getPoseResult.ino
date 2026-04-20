@@ -174,8 +174,7 @@ void loop()
       ++no_target_streak;
       if (no_target_streak == 1u
           || (no_target_streak % NO_TARGET_LOG_INTERVAL) == 0u) {
-        Serial.print(F("[POSE] no target, frame streak="));
-        Serial.println(no_target_streak);
+        Serial.println(F("[POSE] no target"));
       }
     } else {
       printSeparator();

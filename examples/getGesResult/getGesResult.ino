@@ -2,7 +2,7 @@
  * @file getGesResult.ino
  * @brief Example of getting GES (fixed gesture classification) data
  * @details This example demonstrates how to get detection results from the GES model (MODEL 4): bounding box and
- *          class name (fixed labels, id 0..14). No keypoints and no user learn list on the device.
+ *          class name (fixed labels, id 0..12). No keypoints and no user learn list on the device.
  * @copyright   Copyright (c) 2026 DFRobot Co.Ltd (http://www.dfrobot.com)
  * @License     The MIT License (MIT)
  * @author [thdyyl](yuanlong.yu@dfrobot.com)
@@ -80,8 +80,8 @@ void setup()
   }
   Serial.println(F("Sensor init success!"));
 
-  // Set detection model: eGes (MODEL 4) — fixed gesture classification
-  humanPose.setModelType(DFRobot_HumanPose::eGes);
+  // Set detection model: eGesture (MODEL 4) — fixed gesture classification
+  humanPose.setModelType(DFRobot_HumanPose::eGesture);
 #if DFR_HUMANPOSE_LOW_MEMORY
   humanPose.setKeypointOutput(false);
 #endif
@@ -124,8 +124,7 @@ void loop()
       ++no_target_streak;
       if (no_target_streak == 1u
           || (no_target_streak % NO_TARGET_LOG_INTERVAL) == 0u) {
-        Serial.print(F("[GES] no target, frame streak="));
-        Serial.println(no_target_streak);
+        Serial.println(F("[GES] no target"));
       }
     } else {
       printSeparator();

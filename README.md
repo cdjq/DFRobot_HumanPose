@@ -81,7 +81,7 @@ This repository provides an **Arduino** library for HumanPose modules built on D
      * @param model Model type of type `eModel_t`, with possible values including:
      *              - `eHand` - Hand detection model
      *              - `ePose` - Human pose detection model
-     *              - `eGes`  - Fixed gesture classification model (MODEL 4)
+     *              - `eGesture`  - Fixed gesture classification model (MODEL 4)
      * @return Status code of type `eCmdCode_t`. Returns `eOK` if successful, otherwise returns an error code.
      */
     eCmdCode_t setModelType(eModel_t model);
@@ -157,7 +157,7 @@ This repository provides an **Arduino** library for HumanPose modules built on D
      * @param model Model type of type `eModel_t`:
      *              - `eHand` - Get list of learned hand gestures
      *              - `ePose` - Get list of learned poses
-     *              - `eGes`  - Not applicable (returns empty list; fixed class names only, id 0..14)
+     *              - `eGesture`  - Not applicable (returns empty list;)
      * @return Vector of strings containing the names of learned targets. Returns empty vector on error.
      */
     LearnList getLearnList(eModel_t model);
@@ -173,7 +173,7 @@ This repository provides an **Arduino** library for HumanPose modules built on D
      * @fn popResult
      * @brief Get and pop the next detection result
      * @return Pointer to Result object. Returns NULL if no results are available.
-     * @note Depending on current model, cast as PoseResult / HandResult / Result (`eGes` uses Result).
+     * @note Depending on current model, cast as PoseResult / HandResult / Result (`eGesture` uses Result).
      *       On low-memory boards (`DFR_HUMANPOSE_LOW_MEMORY=1`), box-only output is used and popResult() returns Result base objects.
      *       After use, the result will be marked as used.
      */

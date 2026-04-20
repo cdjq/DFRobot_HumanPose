@@ -45,11 +45,11 @@ static const uint16_t CMD_ID_TSIM_GET = 0x0106;
 static const uint16_t CMD_ID_BAUD_SET = 0x001D;
 static const uint16_t CMD_ID_BAUD_GET = 0x001E;
 
-/** Fixed GES class names (class id 0..14). Same mapping as firmware / Himax host tools. */
+/** Fixed GES class names (class id 0..12). Same mapping as firmware / Himax host tools. */
 static const char *const GES_CLASS_NAMES[] = {
   "zero",    "one",     "two",     "three",   "four",
-  "five",    "six",     "dislike", "like",    "ok",
-  "stop",    "rock",    "three2",  "two_up",  "no_gesture",
+  "five",    "dislike", "like",    "ok",      "stop",
+  "rock",    "three2",  "two_up",  "no_gesture",
 };
 static const size_t GES_CLASS_COUNT = sizeof(GES_CLASS_NAMES) / sizeof(GES_CLASS_NAMES[0]);
 
@@ -727,7 +727,7 @@ bool DFRobot_HumanPose::process_binary_at_response(uint8_t flags, const uint8_t 
         } else if (hp_bin_to_uint8(root, v)) {
           _ret_data = v;
         }
-        if (_ret_data == (uint8_t)eHand || _ret_data == (uint8_t)ePose || _ret_data == (uint8_t)eGes) {
+        if (_ret_data == (uint8_t)eHand || _ret_data == (uint8_t)ePose || _ret_data == (uint8_t)eGesture) {
           _current_model = (eModel_t)_ret_data;
         }
       } else if (rsp_cmd_id == CMD_ID_HANDLIST || rsp_cmd_id == CMD_ID_POSELIST) {
@@ -789,7 +789,7 @@ void DFRobot_HumanPose::clear_binary_results()
 
 String DFRobot_HumanPose::resolve_class_name(uint16_t id) const
 {
-  if (_current_model == eGes) {
+  if (_current_model == eGesture) {
     if (id < GES_CLASS_COUNT) {
       return String(GES_CLASS_NAMES[id]);
     }
@@ -914,7 +914,7 @@ void DFRobot_HumanPose::finalize_binary_results()
                        target8,
                        name);
 #else
-    const bool use_ges = (_current_model == eGes);
+    const bool use_ges = (_current_model == eGesture);
     const bool use_pose = _bin_results[i].is_pose;
     if (use_ges) {
       if (_result[i] == NULL || !_result_is_ges[i]) {
@@ -1003,8 +1003,8 @@ bool DFRobot_HumanPose::process_binary_invoke(uint8_t msg_type, uint8_t flags, c
         _current_model = ePose;
       } else if (model_id == (uint16_t)eHand) {
         _current_model = eHand;
-      } else if (model_id == (uint16_t)eGes) {
-        _current_model = eGes;
+      } else if (model_id == (uint16_t)eGesture) {
+        _current_model = eGesture;
       }
     }
 
@@ -1030,8 +1030,8 @@ bool DFRobot_HumanPose::process_binary_invoke(uint8_t msg_type, uint8_t flags, c
         _current_model = ePose;
       } else if (_invoke_model_id == (uint16_t)eHand) {
         _current_model = eHand;
-      } else if (_invoke_model_id == (uint16_t)eGes) {
-        _current_model = eGes;
+      } else if (_invoke_model_id == (uint16_t)eGesture) {
+        _current_model = eGesture;
       }
     }
     return true;
@@ -1272,7 +1272,7 @@ static bool hp_is_percent_0_100(uint8_t v)
 
 static bool hp_is_valid_model(DFRobot_HumanPose::eModel_t model)
 {
-  return (model == DFRobot_HumanPose::eHand || model == DFRobot_HumanPose::ePose || model == DFRobot_HumanPose::eGes);
+  return (model == DFRobot_HumanPose::eHand || model == DFRobot_HumanPose::ePose || model == DFRobot_HumanPose::eGesture);
 }
 
 static bool hp_is_valid_baud(DFRobot_HumanPose_UART::eBaudConfig_t baud)
@@ -1455,7 +1455,7 @@ LearnList DFRobot_HumanPose::getLearnList(eModel_t model)
     return empty;
   }
   // GES: fixed class names only (id 0..14); no learn list AT on device.
-  if (model == eGes) {
+  if (model == eGesture) {
     LearnList empty;
     return empty;
   }

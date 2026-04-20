@@ -81,7 +81,7 @@ HumanPose 是面向 **SEN0670** 系列等端侧人体感知模组的通信与控
      * @param model 类型为 `eModel_t` 的模型类型，可能的值包括：
      *              - `eHand` - 手势检测模型
      *              - `ePose` - 人体姿态检测模型
-     *              - `eGes`  - 固定手势分类模型（MODEL 4）
+     *              - `eGesture`  - 固定手势分类模型（MODEL 4）
      * @return 类型为 `eCmdCode_t` 的状态代码。成功返回 `eOK`，否则返回错误代码。
      */
     eCmdCode_t setModelType(eModel_t model);
@@ -157,7 +157,7 @@ HumanPose 是面向 **SEN0670** 系列等端侧人体感知模组的通信与控
      * @param model 类型为 `eModel_t` 的模型类型：
      *              - `eHand` - 获取学习手势列表
      *              - `ePose` - 获取学习姿态列表
-     *              - `eGes`  - 不适用（返回空列表；固定分类名，id 0..14）
+     *              - `eGesture`  - 不适用（返回空列表）
      * @return 包含学习目标名称的字符串向量。出错时返回空向量。
      */
     LearnList getLearnList(eModel_t model);
@@ -173,7 +173,7 @@ HumanPose 是面向 **SEN0670** 系列等端侧人体感知模组的通信与控
      * @fn popResult
      * @brief 获取并弹出下一个检测结果
      * @return 指向 Result 对象的指针。如果没有可用结果则返回 NULL。
-     * @note 按当前模型分别转换为 PoseResult / HandResult / Result（`eGes` 使用 Result）。
+     * @note 按当前模型分别转换为 PoseResult / HandResult / Result（`eGesture` 使用 Result）。
      *       使用完后，结果会被标记为已使用。
      */
     Result *popResult();

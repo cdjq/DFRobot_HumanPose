@@ -21,14 +21,6 @@
 
 #include <Arduino.h>
 
-/* ---------------------------------------------------------------------------------------------------------------------
- * Hardware connection table (wakeup/EN pin):
- *    Sensor Pin |       MCU Pin        | Leonardo/Mega2560/M0 |   UNO   | ESP8266 |  ESP32  |
- *     VCC       |       3.3V/5V        |         VCC          |   VCC   |   VCC   |   VCC   |
- *     GND       |        GND           |         GND          |   GND   |   GND   |   GND   |
- *     EN/WAKE   |   WAKEUP_PIN (D7)    |    any digital pin   |    7    |   D6    |  IO26   |
- * ----------------------------------------------------------------------------------------------------------------------*/
-
 /** Set to 1: board LED blinks slowly while EN is held HIGH (visual “program running, sensor enabled”). */
 #define WAKEUP_DEMO_LED_HEARTBEAT 1
 
@@ -54,23 +46,6 @@ void sensorPowerOn()
   Serial.println(F("Sensor ON (wakeup=HIGH, sensor enabled)"));
 }
 
-static void printScenario()
-{
-  Serial.println();
-  Serial.println(F("========== Scenario (when to use EN / wakeup) =========="));
-  Serial.println(F("Example: kiosk / classroom / battery project — turn the sensor off when idle,"));
-  Serial.println(F("turn it on before business hours or when someone approaches. EN=LOW cuts"));
-  Serial.println(F("the sensor side; EN=HIGH lets I2C/UART examples talk to the module."));
-  Serial.println(F("=========================================================="));
-  Serial.println();
-  Serial.println(F("[Step 1] Configure EN as OUTPUT, start LOW (sensor off)."));
-  Serial.println(F("[Step 2] Wait so the module fully powers down."));
-  Serial.println(F("[Step 3] Drive EN HIGH (sensor on) — ready for detection sketches."));
-  Serial.println();
-  Serial.println(F("Next: upload & run getPoseResult / getHandResult / getGesResult"));
-  Serial.println(F("(same GND; keep EN HIGH while using those examples)."));
-  Serial.println();
-}
 
 // ------------------------ Arduino setup/loop ------------------------
 void setup()
@@ -79,8 +54,6 @@ void setup()
   while (!Serial) {
     ;
   }
-
-  printScenario();
 
   pinMode(WAKEUP_PIN, OUTPUT);
 #if WAKEUP_DEMO_LED_HEARTBEAT

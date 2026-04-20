@@ -343,7 +343,7 @@ class DFRobot_HumanPose(object):
   MODEL_POSE = 3
   MODEL_GES = 4
 
-  #: Fixed GES class names (class id 0..14). Same mapping as firmware / Himax host tools.
+  #: Fixed GES class names (class id 0..12). Same mapping as firmware / Himax host tools.
   GES_CLASS_NAMES = (
     "zero",
     "one",
@@ -351,7 +351,6 @@ class DFRobot_HumanPose(object):
     "three",
     "four",
     "five",
-    "six",
     "dislike",
     "like",
     "ok",
@@ -988,7 +987,7 @@ class DFRobot_HumanPose(object):
   def set_learn_similarity(self, similarity):
     """
     @fn    set_learn_similarity
-    @brief Set similarity threshold (0-100) for matching learned targets, default typically 60.
+    @brief Set similarity threshold (0-100) for matching learned targets, default typically 80.
     @param similarity: Similarity threshold.
     @return CODE_OK: Success, CODE_TIMEOUT: Timeout.
     """

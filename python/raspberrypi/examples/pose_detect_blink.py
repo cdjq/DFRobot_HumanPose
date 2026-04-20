@@ -86,7 +86,7 @@ def main():
   # Detection thresholds
   human_pose.set_iou(45)  # IOU 0-100, NMS, default ~45
   human_pose.set_confidence(80)  # Confidence 0-100, default ~60
-  human_pose.set_learn_similarity(60)  # Learn similarity 0-100, default ~60
+  human_pose.set_learn_similarity(80)  # Learn similarity 0-100, default ~80
 
   # Optional: read and print current params
   iou = human_pose.get_iou()
