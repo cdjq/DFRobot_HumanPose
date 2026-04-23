@@ -35,7 +35,8 @@ struct PointU16 {
 class Result {
 public:
   Result(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint8_t scoreValue, uint8_t targetId, const String &targetName = "unknown");
-  ~Result();
+  /** virtual: library deletes via Result* after allocating PoseResult/HandResult. */
+  virtual ~Result();
 
 public:
   uint8_t  id;

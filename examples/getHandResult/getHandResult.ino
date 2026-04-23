@@ -32,6 +32,8 @@ SoftwareSerial         mySerial(4, 5);
 DFRobot_HumanPose_UART humanPose(&mySerial, 9600);
 #elif defined(ESP32)
 DFRobot_HumanPose_UART humanPose(&Serial1, 9600, /*RX pin*/ 25, /*TX pin*/ 26);
+#elif defined(ARDUINO_BBC_MICROBIT) && !defined(ARDUINO_BBC_MICROBIT_V2)
+#error "BBC micro:bit (nRF51, sandeepmistry/nRF5): Serial1 is not defined. Use I2C in this sketch (#define HUMANPOSE_COMM_I2C) or a board with Serial1."
 #else
 DFRobot_HumanPose_UART humanPose(&Serial1, 9600);
 #endif
