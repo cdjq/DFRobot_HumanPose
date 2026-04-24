@@ -6,7 +6,7 @@
  * @License     The MIT License (MIT)
  * @author [thdyyl](yuanlong.yu@dfrobot.com)
  * @version  V1.0
- * @date  2026-04-13
+ * @date  2026-04-24
  * @url         https://github.com/DFRobot/DFRobot_HumanPose
  */
 #ifndef DFROBOT_HUMANPOSE_H
@@ -17,6 +17,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
 /* Avoid min/max macro conflicts on nRF5/microbit and other platforms. */
 #ifdef min
@@ -129,10 +130,26 @@ public:
   }
   String &operator[](size_t i)
   {
+    assert(i < _count);
+    if (i >= _count) {
+      if (_count > 0) {
+        return _items[_count - 1];
+      }
+      static String s_empty = "";
+      return s_empty;
+    }
     return _items[i];
   }
   const String &operator[](size_t i) const
   {
+    assert(i < _count);
+    if (i >= _count) {
+      if (_count > 0) {
+        return _items[_count - 1];
+      }
+      static const String s_empty = "";
+      return s_empty;
+    }
     return _items[i];
   }
 
@@ -164,6 +181,32 @@ protected:
 #define FEATURE_TRANSPORT_CMD_AVAILABLE 0x03
 #define FEATURE_TRANSPORT_CMD_RESET     0x06
 
+/* --------------------------------------------------------------------------
+ * Buffer / RAM footprint notes
+ *
+ * This driver uses three internal buffers:
+ * - RX_MAX_SIZE        : transport receive buffer
+ * - TX_MAX_SIZE        : transport send buffer (default unified to 32 on all platforms)
+ * - AT_PAYLOAD_MAX_SIZE: binary AT payload assembly buffer
+ *
+ * Memory usage of these buffers:
+ * - Small-memory profile (DFR_HUMANPOSE_SMALL_RAM_PROFILE=1):
+ *   static RAM ~= (RX_MAX_SIZE + 1) + (TX_MAX_SIZE + 1) + AT_PAYLOAD_MAX_SIZE
+ * - Large-memory profile:
+ *   heap RAM at begin() ~= RX_MAX_SIZE + TX_MAX_SIZE + AT_PAYLOAD_MAX_SIZE
+ *
+ * Default totals (buffers only, excluding result objects/String storage):
+ * - UNO/Nano/Mini tiny profile      : 192 + 32 + 192 ~= 416 bytes (+2 bytes sentinel)
+ * - Other small-memory profile      : 256 + 32 + 192 ~= 480 bytes (+2 bytes sentinel)
+ * - ESP8266                         : 2048 + 32 + 2048 ~= 4128 bytes
+ * - ESP32                           : 4096 + 32 + 4096 ~= 8224 bytes
+ * - Other large-memory platforms    : 4096 + 32 + 4096 ~= 8224 bytes
+ *
+ * You can override defaults before including this header:
+ *   #define RX_MAX_SIZE 1024
+ *   #define TX_MAX_SIZE 256
+ *   #include "DFRobot_HumanPose.h"
+ * -------------------------------------------------------------------------- */
 #ifndef RX_MAX_SIZE
 #if USE_SIMPLE_CONTAINERS
 #if DFR_HUMANPOSE_SMALL_RAM_PROFILE
@@ -176,7 +219,7 @@ protected:
 #define RX_MAX_SIZE 512
 #endif
 #elif defined(ARDUINO_ARCH_ESP32)
-#define RX_MAX_SIZE 32 * 1024
+#define RX_MAX_SIZE 4 * 1024
 #elif defined(ESP8266)
 #define RX_MAX_SIZE 2 * 1024
 #else
@@ -201,13 +244,7 @@ protected:
 #endif
 
 #ifndef TX_MAX_SIZE
-#if USE_SIMPLE_CONTAINERS
 #define TX_MAX_SIZE 32
-#elif defined(ESP8266)
-#define TX_MAX_SIZE 512
-#else
-#define TX_MAX_SIZE 4 * 1024
-#endif
 #endif
 
 #ifndef I2C_CLOCK
@@ -243,20 +280,20 @@ protected:
 #define AT_RSP_NAME_BUF_SIZE 20
 #endif
 
-#define AT_NAME        "NAME"
-#define AT_INVOKE      "INVOKE"
-#define AT_TSCORE      "TSCORE"
-#define AT_TIOU        "TIOU"
-#define AT_MODELS      "MODELS?"
-#define AT_MODEL       "MODEL"
-#define EVENT_INVOKE   "INVOKE"
-#define AT_TSIMILARITY "TSIMILARITY"
-#define AT_BAUD        "BAUDRATE"
-#define AT_POSELIST    "POSELIST?"
-#define AT_HANDLIST    "HANDLIST?"
-#define AT_TPROTO      "TPROTO"
-#define AT_TPKTSZ      "TPKTSZ"
-#define AT_TKPTS       "TKPTS"
+#define AT_NAME        "NAME"        // Device name query (used as AT+NAME?).
+#define AT_INVOKE      "INVOKE"      // Trigger one detection run (AT+INVOKE=1,0,1).
+#define AT_TSCORE      "TSCORE"      // Detection confidence threshold (0-100), set/get.
+#define AT_TIOU        "TIOU"        // NMS IOU threshold (0-100), set/get.
+#define AT_MODELS      "MODELS?"     // Supported model list query (defined, currently unused in this driver).
+#define AT_MODEL       "MODEL"       // Active model select/query (eHand/ePose/eGesture).
+#define EVENT_INVOKE   "INVOKE"      // Event tag used when waiting INVOKE completion.
+#define AT_TSIMILARITY "TSIMILARITY" // Learned-target similarity threshold (0-100), set/get.
+#define AT_BAUD        "BAUDRATE"    // UART baud-rate configuration command.
+#define AT_POSELIST    "POSELIST?"   // Query learned pose class-name list.
+#define AT_HANDLIST    "HANDLIST?"   // Query learned hand class-name list.
+#define AT_TPROTO      "TPROTO"      // Transport protocol mode (begin() forces 1 for binary AT).
+#define AT_TPKTSZ      "TPKTSZ"      // Binary packet-size tuning command.
+#define AT_TKPTS       "TKPTS"       // INVOKE keypoint output: 1=include keypoints, 0=boxes only, query with AT+TKPTS?
 
 public:
   /**
@@ -540,7 +577,7 @@ public:
    * @param model Model type of type `eModel_t`:
    *              - `eHand` - Get list of learned hand gestures
    *              - `ePose` - Get list of learned poses
-   *              - `eGesture`  - Not applicable (returns empty list; fixed class names only, id 0..14)
+   *              - `eGesture`  - Not applicable (returns empty list; fixed class names only, id 0..13)
    * @return Vector of learned names. Empty for `eGesture` or on error.
    */
   LearnList getLearnList(eModel_t model);
@@ -555,6 +592,7 @@ public:
   /**
    * @fn popResult
    * @brief Take the next unread detection result (marks it used). Cast by current model: PoseResult / HandResult / Result.
+   * @note Returned pointer is owned by this driver (internal cache). Do NOT delete/free it.
    * @return Pointer to Result, or NULL if none available
    */
   Result *popResult();

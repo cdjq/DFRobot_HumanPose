@@ -2,12 +2,12 @@
  * @file getGesResult.ino
  * @brief Example of getting GES (fixed gesture classification) data
  * @details This example demonstrates how to get detection results from the GES model (MODEL 4): bounding box and
- *          class name (fixed labels, id 0..12). No keypoints and no user learn list on the device.
+ *          class name (fixed labels, id 0..13). No keypoints and no user learn list on the device.
  * @copyright   Copyright (c) 2026 DFRobot Co.Ltd (http://www.dfrobot.com)
  * @License     The MIT License (MIT)
  * @author [thdyyl](yuanlong.yu@dfrobot.com)
  * @version  V1.0.0
- * @date  2026-04-13
+ * @date  2026-04-24
  * @url         https://github.com/DFRobot/DFRobot_HumanPose
  */
 
@@ -33,6 +33,8 @@ SoftwareSerial         mySerial(4, 5);
 DFRobot_HumanPose_UART humanPose(&mySerial, 9600);
 #elif defined(ESP32)
 DFRobot_HumanPose_UART humanPose(&Serial1, 9600, /*RX pin*/ 25, /*TX pin*/ 26);
+#elif defined(ARDUINO_BBC_MICROBIT) && !defined(ARDUINO_BBC_MICROBIT_V2)
+#error "BBC micro:bit (nRF51, sandeepmistry/nRF5): Serial1 is not defined. Use I2C in this sketch (#define HUMANPOSE_COMM_I2C) or a board with Serial1."
 #else
 DFRobot_HumanPose_UART humanPose(&Serial1, 9600);
 #endif

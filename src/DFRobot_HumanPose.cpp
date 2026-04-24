@@ -6,7 +6,7 @@
  * @License     The MIT License (MIT)
  * @author [thdyyl](yuanlong.yu@dfrobot.com)
  * @version  V1.0
- * @date  2026-04-13
+ * @date  2026-04-24
  * @url         https://github.com/DFRobot/DFRobot_HumanPose
  */
 
@@ -45,7 +45,7 @@ static const uint16_t CMD_ID_TSIM_GET = 0x0106;
 static const uint16_t CMD_ID_BAUD_SET = 0x001D;
 static const uint16_t CMD_ID_BAUD_GET = 0x001E;
 
-/** Fixed GES class names (class id 0..12). Same mapping as firmware / Himax host tools. */
+/** Fixed GES class names (class id 0..13). Same mapping as firmware / Himax host tools. */
 static const char *const GES_CLASS_NAMES[] = {
   "zero",    "one",     "two",     "three",   "four",
   "five",    "dislike", "like",    "ok",      "stop",
@@ -227,11 +227,6 @@ static bool hp_bin_array_to_string_list(const bin_value_view_t &arr, LearnList &
 
 // ============ Base Class: DFRobot_HumanPose ============
 
-/**
- * @fn DFRobot_HumanPose::DFRobot_HumanPose
- * @brief Constructor of DFRobot_HumanPose class
- * @details Initializes internal variables and sets default values
- */
 DFRobot_HumanPose::DFRobot_HumanPose()
 {
   _wait_delay = 2;
@@ -256,11 +251,6 @@ DFRobot_HumanPose::DFRobot_HumanPose()
   clear_binary_results();
 }
 
-/**
- * @fn DFRobot_HumanPose::~DFRobot_HumanPose
- * @brief Destructor of DFRobot_HumanPose class
- * @details Frees allocated memory for transmit and receive buffers
- */
 DFRobot_HumanPose::~DFRobot_HumanPose()
 {
   for (uint8_t i = 0; i < MAX_RESULT_NUM; ++i) {
@@ -290,12 +280,6 @@ DFRobot_HumanPose::~DFRobot_HumanPose()
   _at_payload_cap = 0;
 }
 
-/**
- * @fn DFRobot_HumanPose::begin
- * @brief Initialize the sensor
- * @details Allocates memory for transmit and receive buffers, then initializes binary protocol communication
- * @return True if initialization is successful, otherwise false
- */
 bool DFRobot_HumanPose::begin()
 {
   // Allocate/attach buffers
@@ -403,15 +387,6 @@ bool DFRobot_HumanPose::begin()
   return true;
 }
 
-/**
- * @fn DFRobot_HumanPose::wait
- * @brief Wait for command response from the sensor
- * @details Reads data from the sensor and waits for a response matching the specified command type and name
- * @param type Command type (CMD_TYPE_RESPONSE, CMD_TYPE_EVENT, or CMD_TYPE_LOG)
- * @param cmd Command name string to match
- * @param timeout Timeout value in milliseconds (default is 1000)
- * @return Status code of type `eCmdCode_t`. Returns `eOK` if response received successfully, `eTimedOut` if timeout occurs
- */
 int DFRobot_HumanPose::wait(int type, const char *cmd, uint32_t timeout)
 {
   unsigned long startTime = millis();
@@ -1222,14 +1197,6 @@ bool DFRobot_HumanPose::process_binary_invoke(uint8_t msg_type, uint8_t flags, c
   return false;
 }
 
-/**
- * @fn DFRobot_HumanPose::getResult
- * @brief Get detection results from the sensor
- * @details Sends an INVOKE command to trigger detection and waits for the response and event data
- * @return Status code of type `eCmdCode_t`. Returns `eOK` if results are successfully retrieved,
- *         otherwise returns an error code (typically `eTimedOut`)
- * @note After successful execution, detection results are available via the keypoints() method
- */
 DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getResult()
 {
   char cmd[64] = { 0 };
@@ -1454,7 +1421,7 @@ LearnList DFRobot_HumanPose::getLearnList(eModel_t model)
     LearnList empty;
     return empty;
   }
-  // GES: fixed class names only (id 0..14); no learn list AT on device.
+  // GES: fixed class names only (id 0..13); no learn list AT on device.
   if (model == eGesture) {
     LearnList empty;
     return empty;
@@ -1502,6 +1469,7 @@ Result *DFRobot_HumanPose::popResult()
         continue;
       }
 
+      // Return internal cached object (owned by driver); caller must not delete/free this pointer.
       _result[i]->used = true;
       return _result[i];
     }
@@ -1532,30 +1500,14 @@ DFRobot_HumanPose::eCmdCode_t DFRobot_HumanPose::getName(char *name)
 
 // ============ Derived Class: DFRobot_HumanPose_I2C ============
 
-/**
- * @fn DFRobot_HumanPose_I2C::DFRobot_HumanPose_I2C
- * @brief Constructor of DFRobot_HumanPose_I2C class
- * @param wire Pointer to TwoWire object (typically &Wire)
- * @param address I2C device address (default is 0x3A)
- */
 DFRobot_HumanPose_I2C::DFRobot_HumanPose_I2C(TwoWire *wire, uint8_t address)
 {
   _wire     = wire;
   __address = address;
 }
 
-/**
- * @fn DFRobot_HumanPose_I2C::~DFRobot_HumanPose_I2C
- * @brief Destructor of DFRobot_HumanPose_I2C class
- */
 DFRobot_HumanPose_I2C::~DFRobot_HumanPose_I2C() {}
 
-/**
- * @fn DFRobot_HumanPose_I2C::begin
- * @brief Initialize the I2C communication and sensor
- * @details Initializes the I2C bus, sets the I2C clock speed, and calls the base class begin() method
- * @return True if initialization is successful, otherwise false
- */
 bool DFRobot_HumanPose_I2C::begin(void)
 {
   _wire->begin();
@@ -1574,7 +1526,7 @@ int DFRobot_HumanPose_I2C::available()
   _wire->write((uint8_t)FEATURE_TRANSPORT_CMD_AVAILABLE);
   _wire->write((uint8_t)0);
   _wire->write((uint8_t)0);
-  // TODO checksum
+  // Protocol reserves 2-byte checksum here; current transport uses fixed 0x00 0x00.
   _wire->write((uint8_t)0);
   _wire->write((uint8_t)0);
   const uint8_t tx_ret = _wire->endTransmission();
@@ -1616,7 +1568,7 @@ int DFRobot_HumanPose_I2C::read(char *data, int len)
     _wire->write((uint8_t)FEATURE_TRANSPORT_CMD_READ);
     _wire->write((uint8_t)(chunk >> 8));
     _wire->write((uint8_t)(chunk & 0xFF));
-    // TODO checksum
+    // Protocol reserves 2-byte checksum here; current transport uses fixed 0x00 0x00.
     _wire->write((uint8_t)0);
     _wire->write((uint8_t)0);
     const uint8_t tx_ret = _wire->endTransmission();
@@ -1663,7 +1615,7 @@ int DFRobot_HumanPose_I2C::write(const char *data, int len)
     _wire->write((uint8_t)(chunk >> 8));
     _wire->write((uint8_t)(chunk & 0xFF));
     _wire->write((const uint8_t *)(data + total_write), chunk);
-    // TODO checksum
+    // Protocol reserves 2-byte checksum here; current transport uses fixed 0x00 0x00.
     _wire->write((uint8_t)0);
     _wire->write((uint8_t)0);
     const uint8_t tx_ret = _wire->endTransmission();
@@ -1683,26 +1635,12 @@ int DFRobot_HumanPose_I2C::write(const char *data, int len)
 // ============ Derived Class: DFRobot_HumanPose_UART ============
 
 #if defined(ARDUINO_AVR_UNO) || defined(ESP8266)
-/**
- * @fn DFRobot_HumanPose_UART::DFRobot_HumanPose_UART
- * @brief Constructor of DFRobot_HumanPose_UART class (for UNO/ESP8266)
- * @param sSerial Pointer to SoftwareSerial object
- * @param baud Baud rate value (default UART_BAUD, 9600)
- */
 DFRobot_HumanPose_UART::DFRobot_HumanPose_UART(SoftwareSerial *sSerial, uint32_t baud)
 {
   _serial = sSerial;
   __baud  = baud;
 }
 #else
-/**
- * @fn DFRobot_HumanPose_UART::DFRobot_HumanPose_UART
- * @brief Constructor of DFRobot_HumanPose_UART class
- * @param hSerial Pointer to HardwareSerial object (typically &Serial1)
- * @param baud Baud rate value (default UART_BAUD, 9600)
- * @param rxpin RX pin number (default is 0, required for ESP32)
- * @param txpin TX pin number (default is 0, required for ESP32)
- */
 DFRobot_HumanPose_UART::DFRobot_HumanPose_UART(HardwareSerial *hSerial, uint32_t baud, uint8_t rxpin, uint8_t txpin)
 {
   _serial = hSerial;
@@ -1712,18 +1650,8 @@ DFRobot_HumanPose_UART::DFRobot_HumanPose_UART(HardwareSerial *hSerial, uint32_t
 }
 #endif
 
-/**
- * @fn DFRobot_HumanPose_UART::~DFRobot_HumanPose_UART
- * @brief Destructor of DFRobot_HumanPose_UART class
- */
 DFRobot_HumanPose_UART::~DFRobot_HumanPose_UART() {}
 
-/**
- * @fn DFRobot_HumanPose_UART::begin
- * @brief Initialize the UART communication and sensor
- * @details Initializes the serial port with the configured baud rate, sets timeout, and calls the base class begin() method
- * @return True if initialization is successful, otherwise false
- */
 bool DFRobot_HumanPose_UART::begin(void)
 {
   _wait_delay = 2;

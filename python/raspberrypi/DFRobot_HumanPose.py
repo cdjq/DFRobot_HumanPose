@@ -15,15 +15,13 @@ Binary-framed AT protocol (e.g. ``AT+TPROTO=1``); command set and MODEL semantic
 from pinpong.board import I2C, gboard, UART
 import time
 import logging
+import math
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any, Union
+from numbers import Real
 from abc import ABC, abstractmethod
 
-logging.basicConfig(
-  level=logging.INFO,
-  format="%(asctime)s [%(levelname)s] %(message)s",
-  datefmt="%Y-%m-%d %H:%M:%S",
-)
+logger = logging.getLogger(__name__)
 
 ByteList = List[int]
 BytesLike = Union[str, bytes, bytearray, ByteList]
@@ -82,7 +80,9 @@ class Result:
   def from_json(cls, data: list, names: list) -> "Result":
     """
     @fn    from_json
-    @brief Parse a single target from JSON. data format: [box, points], box: [xLeft, yTop, width, height, score, id].
+    @brief Parse a single target from JSON. Compatibility path for legacy JSON payloads.
+    @n     Runtime transport path uses binary frames; keep this for backward compatibility.
+    @n     data format: [box, points], box: [xLeft, yTop, width, height, score, id].
     @param data: Single target data [box, points].
     @param names: available_classes list for id-to-name mapping.
     @return Result instance.
@@ -136,7 +136,8 @@ class PoseResult(Result):
   def from_json(cls, data: list, names: list) -> "PoseResult":
     """
     @fn    from_json
-    @brief Parse pose result from JSON; keypoint order 0~16: nose, leye, reye, lear, rear, shoulders, elbows, wrists, hips, knees, ankles.
+    @brief Parse pose result from JSON (legacy compatibility path).
+    @n     keypoint order 0~16: nose, leye, reye, lear, rear, shoulders, elbows, wrists, hips, knees, ankles.
     @param data: [box, points].
     @param names: available_classes.
     @return PoseResult instance.
@@ -207,7 +208,8 @@ class HandResult(Result):
   def from_json(cls, data: list, names: list) -> "HandResult":
     """
     @fn    from_json
-    @brief Parse hand result from JSON; 21 keypoints: wrist, thumb (4), index/middle/ring/pinky (4 each).
+    @brief Parse hand result from JSON (legacy compatibility path).
+    @n     21 keypoints: wrist, thumb (4), index/middle/ring/pinky (4 each).
     @param data: [box, points].
     @param names: available_classes.
     @return HandResult instance.
@@ -246,7 +248,7 @@ class HandResult(Result):
     return hr
 
 
-class DFRobot_HumanPose(object):
+class DFRobot_HumanPose(ABC):
   """
   @brief Base class for DFRobot Human Pose sensor (I2C/UART).
   @n     Use DFRobot_HumanPose_I2C or DFRobot_HumanPose_UART to communicate.
@@ -267,20 +269,20 @@ class DFRobot_HumanPose(object):
   CMD_TYPE_EVENT = 1
   CMD_TYPE_LOG = 2
 
-  AT_NAME = "NAME"
-  AT_INVOKE = "INVOKE"
-  AT_TSCORE = "TSCORE"
-  AT_TIOU = "TIOU"
-  AT_MODELS = "MODELS?"
-  AT_MODEL = "MODEL"
-  EVENT_INVOKE = "INVOKE"
-  AT_TSIMILARITY = "TSIMILARITY"
-  AT_BAUD = "BAUDRATE"
-  AT_POSELIST = "POSELIST?"
-  AT_HANDLIST = "HANDLIST?"
-  AT_TPROTO = "TPROTO"
-  AT_TPKTSZ = "TPKTSZ"
-  AT_TKPTS = "TKPTS"
+  AT_NAME = "NAME"              # Device name query (used as AT+NAME?).
+  AT_INVOKE = "INVOKE"          # Trigger one detection run (AT+INVOKE=1,0,1).
+  AT_TSCORE = "TSCORE"          # Detection confidence threshold (0-100), set/get.
+  AT_TIOU = "TIOU"              # NMS IOU threshold (0-100), set/get.
+  AT_MODELS = "MODELS?"         # Supported model list query (defined, currently unused in this driver).
+  AT_MODEL = "MODEL"            # Active model select/query (hand/pose/gesture).
+  EVENT_INVOKE = "INVOKE"       # Event tag used when waiting INVOKE completion.
+  AT_TSIMILARITY = "TSIMILARITY"  # Learned-target similarity threshold (0-100), set/get.
+  AT_BAUD = "BAUDRATE"          # UART baud-rate configuration command.
+  AT_POSELIST = "POSELIST?"     # Query learned pose class-name list.
+  AT_HANDLIST = "HANDLIST?"     # Query learned hand class-name list.
+  AT_TPROTO = "TPROTO"          # Transport protocol mode (begin() forces 1 for binary AT).
+  AT_TPKTSZ = "TPKTSZ"          # Binary packet-size tuning command.
+  AT_TKPTS = "TKPTS"            # INVOKE keypoint output: 1=include keypoints, 0=boxes only, query with AT+TKPTS?
 
   # Binary protocol constants
   HP_BIN_SOF0 = 0x55
@@ -343,7 +345,7 @@ class DFRobot_HumanPose(object):
   MODEL_POSE = 3
   MODEL_GES = 4
 
-  #: Fixed GES class names (class id 0..12). Same mapping as firmware / Himax host tools.
+  #: Fixed GES class names (class id 0..13). Same mapping as firmware / Himax host tools.
   GES_CLASS_NAMES = (
     "zero",
     "one",
@@ -391,18 +393,22 @@ class DFRobot_HumanPose(object):
 
   @staticmethod
   def _read_u16_le(buf: bytes, off: int = 0) -> int:
+    """Read little-endian unsigned 16-bit integer from buffer."""
     return int(buf[off]) | (int(buf[off + 1]) << 8)
 
   @staticmethod
   def _read_i16_le(buf: bytes, off: int = 0) -> int:
+    """Read little-endian signed 16-bit integer from buffer."""
     return int.from_bytes(buf[off:off + 2], byteorder="little", signed=True)
 
   @staticmethod
   def _read_u32_le(buf: bytes, off: int = 0) -> int:
+    """Read little-endian unsigned 32-bit integer from buffer."""
     return int.from_bytes(buf[off:off + 4], byteorder="little", signed=False)
 
   @staticmethod
   def _crc16_ccitt_update(crc: int, data: bytes) -> int:
+    """Update CRC-16/CCITT (poly 0x1021) with given bytes."""
     for b in data:
       crc ^= (b << 8)
       for _ in range(8):
@@ -413,14 +419,35 @@ class DFRobot_HumanPose(object):
     return crc & 0xFFFF
 
   @staticmethod
+  def _normalize_percent_0_100(value) -> Optional[int]:
+    """Normalize percentage input to int in [0, 100], otherwise return None."""
+    if isinstance(value, bool):
+      return None
+    if isinstance(value, int):
+      n = value
+    elif isinstance(value, Real):
+      f = float(value)
+      if not math.isfinite(f) or not f.is_integer():
+        return None
+      n = int(f)
+    else:
+      return None
+    if 0 <= n <= 100:
+      return n
+    return None
+
+  @staticmethod
   def _is_percent_0_100(value) -> bool:
-    return isinstance(value, int) and (0 <= value <= 100)
+    """Return True when value can be normalized to integer percentage [0, 100]."""
+    return DFRobot_HumanPose._normalize_percent_0_100(value) is not None
 
   def _is_valid_model(self, model) -> bool:
+    """Validate model id against supported constants."""
     return model in (self.MODEL_HAND, self.MODEL_POSE, self.MODEL_GES)
 
   @staticmethod
   def _new_bin_result() -> Dict[str, Any]:
+    """Create an empty binary-result slot cache structure."""
     return {
       "used": False,
       "is_pose": False,
@@ -435,12 +462,14 @@ class DFRobot_HumanPose(object):
     }
 
   def _clear_binary_results(self):
+    """Reset invoke result cache and per-target binary buffers."""
     self._bin_result_count = 0
     self._invoke_model_id = 0
     for i in range(self.MAX_RESULT_NUM):
       self._bin_results[i] = self._new_bin_result()
 
   def _resolve_class_name(self, cls_id: int) -> str:
+    """Resolve class id to display name for current model context."""
     if self._current_model == self.MODEL_GES:
       if 0 <= cls_id < len(self.GES_CLASS_NAMES):
         return self.GES_CLASS_NAMES[cls_id]
@@ -453,6 +482,7 @@ class DFRobot_HumanPose(object):
     return f"class_{cls_id}"
 
   def _command_matches(self, cmd_id: int, cmd: str) -> bool:
+    """Check whether response command id belongs to expected AT command."""
     if not cmd:
       return False
 
@@ -489,6 +519,7 @@ class DFRobot_HumanPose(object):
     return self._at_rsp_name == cmd or self._at_rsp_name.startswith(cmd)
 
   def _parse_bin_value(self, data: bytes, offset: int):
+    """Parse one TLV-like binary value from payload and return (value_dict, new_offset)."""
     if offset + 8 > len(data):
       return None, offset
     v_type = int(data[offset + 0])
@@ -502,6 +533,7 @@ class DFRobot_HumanPose(object):
     return {"type": v_type, "flags": v_flags, "length": v_len, "body": body}, offset
 
   def _bin_to_uint8(self, v) -> Optional[int]:
+    """Convert parsed binary value to uint8 when compatible, else None."""
     if not v:
       return None
     t = v["type"]
@@ -522,11 +554,13 @@ class DFRobot_HumanPose(object):
     return None
 
   def _bin_to_string(self, v) -> Optional[str]:
+    """Convert parsed binary string value to UTF-8 text."""
     if not v or v["type"] != self.HP_BIN_STRING:
       return None
     return bytes(v["body"]).decode("utf-8", errors="ignore")
 
   def _bin_object_get(self, obj_v, key: str):
+    """Read one key from parsed binary object and return its value view."""
     if not obj_v or obj_v["type"] != self.HP_BIN_OBJECT:
       return None
     body = obj_v["body"]
@@ -553,6 +587,7 @@ class DFRobot_HumanPose(object):
     return None
 
   def _bin_array_to_string_list(self, arr_v) -> List[str]:
+    """Convert parsed binary array into a Python list of strings."""
     out: List[str] = []
     if not arr_v or arr_v["type"] != self.HP_BIN_ARRAY:
       return out
@@ -570,6 +605,7 @@ class DFRobot_HumanPose(object):
     return out
 
   def _process_binary_at_response(self, flags: int, payload: bytes):
+    """Consume binary AT response fragments and update response caches."""
     self._at_payload_buf.extend(payload)
     if (flags & 0x01) == 0:
       return True
@@ -621,18 +657,19 @@ class DFRobot_HumanPose(object):
             self._pose_class_list = parsed
 
     if rsp_type == self.CMD_TYPE_RESPONSE:
-      if not self._at_rsp_ready:
-        self._at_rsp_type = rsp_type
-        self._at_rsp_code = rsp_code
-        self._at_rsp_cmd_id = rsp_cmd_id
-        self._at_rsp_name = ""
-        self._at_rsp_ready = True
+      # Always keep latest complete response; stale-guard can drop subsequent valid replies.
+      self._at_rsp_type = rsp_type
+      self._at_rsp_code = rsp_code
+      self._at_rsp_cmd_id = rsp_cmd_id
+      self._at_rsp_name = ""
+      self._at_rsp_ready = True
     elif rsp_type == self.CMD_TYPE_EVENT and rsp_cmd_id == self.CMD_ID_INVOKE:
       self._invoke_event_code = rsp_code
       self._invoke_event_ready = True
     return True
 
   def _finalize_binary_results(self):
+    """Build high-level Result/PoseResult/HandResult objects from binary cache."""
     new_results = []
     count = min(self._bin_result_count, self.MAX_RESULT_NUM)
     for i in range(count):
@@ -700,6 +737,7 @@ class DFRobot_HumanPose(object):
     self._results = new_results
 
   def _process_binary_invoke(self, msg_type: int, flags: int, payload: bytes):
+    """Process INVOKE stream frames (meta/begin/chunk/end)."""
     _ = flags
     if msg_type == self.HP_BIN_MSG_INVOKE_META:
       ret_code = self._read_i16_le(payload, 0) if len(payload) >= 2 else 0
@@ -708,12 +746,12 @@ class DFRobot_HumanPose(object):
         if model_id in (self.MODEL_HAND, self.MODEL_POSE, self.MODEL_GES):
           self._current_model = model_id
 
-      if not self._at_rsp_ready:
-        self._at_rsp_type = self.CMD_TYPE_RESPONSE
-        self._at_rsp_cmd_id = self.CMD_ID_INVOKE
-        self._at_rsp_code = ret_code
-        self._at_rsp_name = ""
-        self._at_rsp_ready = True
+      # Keep latest INVOKE response; do not block update by previous unread response.
+      self._at_rsp_type = self.CMD_TYPE_RESPONSE
+      self._at_rsp_cmd_id = self.CMD_ID_INVOKE
+      self._at_rsp_code = ret_code
+      self._at_rsp_name = ""
+      self._at_rsp_ready = True
       return True
 
     if msg_type == self.HP_BIN_MSG_INVOKE_BEGIN:
@@ -819,6 +857,7 @@ class DFRobot_HumanPose(object):
     return False
 
   def _process_binary_frames(self) -> bool:
+    """Parse buffered bytes into complete binary frames and dispatch handlers."""
     if len(self._rx_buf) < 2:
       return False
 
@@ -866,6 +905,7 @@ class DFRobot_HumanPose(object):
     return True
 
   def _get_name(self) -> int:
+    """Query device name and store it in self._name."""
     self._write(f"AT+{self.AT_NAME}?\r\n")
     self._name = ""
     if self._wait(self.CMD_TYPE_RESPONSE, self.AT_NAME) == self.CODE_OK:
@@ -906,6 +946,7 @@ class DFRobot_HumanPose(object):
     return True
 
   def _wait(self, expected_type: int, cmd: str, timeout_ms=3000) -> int:
+    """Wait until matching AT response/event arrives or timeout."""
     start = time.monotonic()
 
     while (time.monotonic() - start) * 1000 <= timeout_ms:
@@ -963,9 +1004,10 @@ class DFRobot_HumanPose(object):
     @param confidence: Confidence threshold.
     @return CODE_OK: Success, CODE_TIMEOUT: Timeout.
     """
-    if not self._is_percent_0_100(confidence):
+    normalized = self._normalize_percent_0_100(confidence)
+    if normalized is None:
       return self.CODE_INVAL
-    self._write(f"AT+{self.AT_TSCORE}={confidence}\r\n")
+    self._write(f"AT+{self.AT_TSCORE}={normalized}\r\n")
     if self._wait(self.CMD_TYPE_RESPONSE, self.AT_TSCORE) == self.CODE_OK:
       return self.CODE_OK
     return self.CODE_TIMEOUT
@@ -977,9 +1019,10 @@ class DFRobot_HumanPose(object):
     @param iou: IOU threshold.
     @return CODE_OK: Success, CODE_TIMEOUT: Timeout.
     """
-    if not self._is_percent_0_100(iou):
+    normalized = self._normalize_percent_0_100(iou)
+    if normalized is None:
       return self.CODE_INVAL
-    self._write(f"AT+{self.AT_TIOU}={iou}\r\n")
+    self._write(f"AT+{self.AT_TIOU}={normalized}\r\n")
     if self._wait(self.CMD_TYPE_RESPONSE, self.AT_TIOU) == self.CODE_OK:
       return self.CODE_OK
     return self.CODE_TIMEOUT
@@ -991,9 +1034,10 @@ class DFRobot_HumanPose(object):
     @param similarity: Similarity threshold.
     @return CODE_OK: Success, CODE_TIMEOUT: Timeout.
     """
-    if not self._is_percent_0_100(similarity):
+    normalized = self._normalize_percent_0_100(similarity)
+    if normalized is None:
       return self.CODE_INVAL
-    self._write(f"AT+{self.AT_TSIMILARITY}={similarity}\r\n")
+    self._write(f"AT+{self.AT_TSIMILARITY}={normalized}\r\n")
     if self._wait(self.CMD_TYPE_RESPONSE, self.AT_TSIMILARITY) == self.CODE_OK:
       return self.CODE_OK
     return self.CODE_TIMEOUT
@@ -1003,6 +1047,7 @@ class DFRobot_HumanPose(object):
     @fn    set_model_type
     @brief Set detection model type.
     @param model: MODEL_HAND (1), MODEL_POSE (3), or MODEL_GES (4) fixed gesture classification.
+    @n     If set to MODEL_HAND/MODEL_POSE, this call refreshes learn list cache automatically.
     @return CODE_OK: Success, CODE_TIMEOUT: Timeout.
     """
     if not self._is_valid_model(model):
@@ -1010,6 +1055,9 @@ class DFRobot_HumanPose(object):
     self._write(f"AT+{self.AT_MODEL}={model}\r\n")
     if self._wait(self.CMD_TYPE_RESPONSE, self.AT_MODEL) == self.CODE_OK:
       self._current_model = model
+      if model in (self.MODEL_HAND, self.MODEL_POSE):
+        # Keep class-id -> name mapping fresh for binary result decode.
+        self.get_learn_list(model)
       return self.CODE_OK
     return self.CODE_TIMEOUT
 
@@ -1021,9 +1069,10 @@ class DFRobot_HumanPose(object):
     """
     self._write(f"AT+{self.AT_TSCORE}?\r\n")
     if self._wait(self.CMD_TYPE_RESPONSE, self.AT_TSCORE) == self.CODE_OK:
-      if not self._is_percent_0_100(self._ret_data):
+      normalized = self._normalize_percent_0_100(self._ret_data)
+      if normalized is None:
         return None
-      return self._ret_data
+      return normalized
     return None
 
   def get_iou(self):
@@ -1034,9 +1083,10 @@ class DFRobot_HumanPose(object):
     """
     self._write(f"AT+{self.AT_TIOU}?\r\n")
     if self._wait(self.CMD_TYPE_RESPONSE, self.AT_TIOU) == self.CODE_OK:
-      if not self._is_percent_0_100(self._ret_data):
+      normalized = self._normalize_percent_0_100(self._ret_data)
+      if normalized is None:
         return None
-      return self._ret_data
+      return normalized
     return None
 
   def get_learn_similarity(self):
@@ -1047,9 +1097,10 @@ class DFRobot_HumanPose(object):
     """
     self._write(f"AT+{self.AT_TSIMILARITY}?\r\n")
     if self._wait(self.CMD_TYPE_RESPONSE, self.AT_TSIMILARITY) == self.CODE_OK:
-      if not self._is_percent_0_100(self._ret_data):
+      normalized = self._normalize_percent_0_100(self._ret_data)
+      if normalized is None:
         return None
-      return self._ret_data
+      return normalized
     return None
 
   def get_learn_list(self, model):
@@ -1057,19 +1108,19 @@ class DFRobot_HumanPose(object):
     @fn    get_learn_list
     @brief Get the list of learned target names for the given model.
     @param model: MODEL_POSE or MODEL_HAND. MODEL_GES has no learn list (returns []).
-    @n       GES uses fixed class names (id 0..14); no POSELIST/HANDLIST on device.
-    @return List of names. Returns empty list on timeout or for MODEL_GES.
+    @n       GES uses fixed class names (id 0..13); no POSELIST/HANDLIST on device.
+    @return List of names. MODEL_GES always returns []; HAND/POSE returns current cache (refreshed on success).
     """
-    self._learn_list = []
     if not self._is_valid_model(model):
       return []
     if model == self.MODEL_GES:
       return []
     model_list = self.AT_POSELIST if model == self.MODEL_POSE else self.AT_HANDLIST
+    cached = self._pose_class_list if model == self.MODEL_POSE else self._hand_class_list
     self._write(f"AT+{model_list}\r\n")
-    if self._wait(self.CMD_TYPE_RESPONSE, model_list) == self.CODE_OK:
-      return list(self._learn_list)
-    return []
+    self._wait(self.CMD_TYPE_RESPONSE, model_list)
+    self._learn_list = list(cached)
+    return list(self._learn_list)
 
   def set_keypoint_output(self, enable: bool):
     """
@@ -1091,7 +1142,9 @@ class DFRobot_HumanPose(object):
     """
     self._write(f"AT+{self.AT_TKPTS}?\r\n")
     if self._wait(self.CMD_TYPE_RESPONSE, self.AT_TKPTS) == self.CODE_OK:
-      if int(self._ret_data) > 1:
+      if not isinstance(self._ret_data, int):
+        return None
+      if self._ret_data > 1:
         return None
       return 1 if self._ret_data else 0
     return None
@@ -1156,6 +1209,7 @@ class DFRobot_HumanPose_I2C(DFRobot_HumanPose):
     super().__init__()
 
   def _write(self, data: BytesLike) -> bool:
+    """Send raw bytes via I2C in MAX_PL_LEN-sized transport packets."""
     if isinstance(data, str):
       data = data.encode("ascii")
     if isinstance(data, (bytes, bytearray)):
@@ -1170,12 +1224,14 @@ class DFRobot_HumanPose_I2C(DFRobot_HumanPose):
         end = start + self.MAX_PL_LEN
         buf = bytearray([0x10, 0x02, self.MAX_PL_LEN >> 8, self.MAX_PL_LEN & 0xFF])
         buf.extend(data[start:end])
+        buf.extend(b"\x00\x00")
         self.i2c.writeto(self.i2c_addr, buf)
       if remain:
         start = packets * self.MAX_PL_LEN
         end = start + remain
         buf = bytearray([0x10, 0x02, remain >> 8, remain & 0xFF])
         buf.extend(data[start:end])
+        buf.extend(b"\x00\x00")
         self.i2c.writeto(self.i2c_addr, buf)
       return True
     except Exception as e:
@@ -1183,16 +1239,17 @@ class DFRobot_HumanPose_I2C(DFRobot_HumanPose):
       return False
 
   def _read(self, length: int) -> List[int]:
+    """Read up to length bytes from I2C transport in chunked requests."""
     packets = length // self.MAX_PL_LEN
     remain = length % self.MAX_PL_LEN
     ret_data = []
     try:
       for _ in range(packets):
-        self.i2c.writeto(self.i2c_addr, bytes([0x10, 0x01, self.MAX_PL_LEN >> 8, self.MAX_PL_LEN & 0xFF]))
+        self.i2c.writeto(self.i2c_addr, bytes([0x10, 0x01, self.MAX_PL_LEN >> 8, self.MAX_PL_LEN & 0xFF, 0x00, 0x00]))
         time.sleep(0.01)
         ret_data.extend(self.i2c.readfrom(self.i2c_addr, self.MAX_PL_LEN))
       if remain:
-        self.i2c.writeto(self.i2c_addr, bytes([0x10, 0x01, remain >> 8, remain & 0xFF]))
+        self.i2c.writeto(self.i2c_addr, bytes([0x10, 0x01, remain >> 8, remain & 0xFF, 0x00, 0x00]))
         time.sleep(0.01)
         ret_data.extend(self.i2c.readfrom(self.i2c_addr, remain))
       return ret_data
@@ -1201,6 +1258,7 @@ class DFRobot_HumanPose_I2C(DFRobot_HumanPose):
       return []
 
   def _available(self) -> int:
+    """Query unread byte count from device over I2C transport command."""
     try:
       self.i2c.writeto(self.i2c_addr, self._cmd_available)
       len_data = self.i2c.readfrom(self.i2c_addr, 2)
@@ -1250,6 +1308,7 @@ class DFRobot_HumanPose_UART(DFRobot_HumanPose):
     super().__init__()
 
   def _write(self, data: BytesLike) -> bool:
+    """Send raw bytes through UART transport."""
     if isinstance(data, str):
       data = data.encode("ascii")
     if isinstance(data, (bytes, bytearray)):
@@ -1264,6 +1323,7 @@ class DFRobot_HumanPose_UART(DFRobot_HumanPose):
       return False
 
   def _read(self, length: int) -> List[int]:
+    """Read up to length bytes from UART transport."""
     try:
       ret_data = self.uart.read(length)
       return ret_data
@@ -1272,6 +1332,7 @@ class DFRobot_HumanPose_UART(DFRobot_HumanPose):
       return []
 
   def _available(self) -> int:
+    """Return currently buffered UART bytes available to read."""
     try:
       len_data = self.uart.any()
       logging.debug(len_data)

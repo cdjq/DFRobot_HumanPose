@@ -122,8 +122,9 @@ python get_hand_result.py
     def get_learn_list(self, model):
         '''
           @brief Get the list of learned target names for the given model
-          @param model: MODEL_POSE or MODEL_HAND
-          @return List of names; returns [] on timeout
+          @param model: MODEL_POSE / MODEL_HAND / MODEL_GES
+          @n     MODEL_GES uses fixed class names (id 0..13), so this always returns []
+          @return List of names; HAND/POSE returns current cached list
         '''
 
     def set_keypoint_output(self, enable):
@@ -136,7 +137,7 @@ python get_hand_result.py
     def get_keypoint_output(self):
         '''
           @brief Get whether INVOKE output includes keypoints
-          @return 1/0 on success, None on timeout
+          @return 1/0 on success, None on timeout or invalid payload (expect 0/1)
         '''
 
     def available_result(self):

@@ -8,6 +8,7 @@ HumanPose is a host-side library for DFRobot’s on-device Human Pose modules (e
 
 * [Description](#description)
 * [Installation](#installation)
+* [Resource Usage](#resource-usage)
 * [Methods](#methods)
 * [Compatibility](#compatibility)
 * [History](#history)
@@ -28,6 +29,41 @@ This repository provides an **Arduino** library for HumanPose modules built on D
 
 1. To use this library, first download the library file, paste it into the `\Arduino\libraries` directory, then open the example folder and run the examples in it.
 2. This library is binary-protocol only and does not require ArduinoJson.
+
+## Resource Usage
+
+The Arduino driver allocates three internal buffers:
+
+- `RX_MAX_SIZE`: receive buffer
+- `TX_MAX_SIZE`: send buffer (default unified to `32` on all platforms)
+- `AT_PAYLOAD_MAX_SIZE`: binary AT payload assembly buffer
+
+### Buffer RAM footprint
+
+- Small-memory profile (`DFR_HUMANPOSE_SMALL_RAM_PROFILE=1`):
+  static RAM ~= `(RX_MAX_SIZE + 1) + (TX_MAX_SIZE + 1) + AT_PAYLOAD_MAX_SIZE`
+- Large-memory profile:
+  heap RAM at `begin()` ~= `RX_MAX_SIZE + TX_MAX_SIZE + AT_PAYLOAD_MAX_SIZE`
+
+Default totals (buffers only, excluding result objects and `String` storage):
+
+| Platform profile | Defaults (`RX`,`TX`,`AT_PAYLOAD`) | Approx. bytes |
+| --- | --- | --- |
+| UNO/Nano/Mini tiny profile | `192, 32, 192` | `~416` (+2 sentinel bytes) |
+| Other small-memory profile | `256, 32, 192` | `~480` (+2 sentinel bytes) |
+| ESP8266 | `2048, 32, 2048` | `~4128` |
+| ESP32 | `4096, 32, 4096` | `~8224` |
+| Other large-memory platforms | `4096, 32, 4096` | `~8224` |
+
+### How to customize buffer sizes
+
+Define macros before including the header:
+
+```c++
+#define RX_MAX_SIZE 1024
+#define TX_MAX_SIZE 256
+#include "DFRobot_HumanPose.h"
+```
 
 ## Methods
 ```c++

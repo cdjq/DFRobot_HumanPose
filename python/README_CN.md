@@ -122,8 +122,22 @@ python get_hand_result.py
     def get_learn_list(self, model):
         '''
           @brief 获取指定模型的已学习目标名称列表
-          @param model: MODEL_POSE 或 MODEL_HAND
-          @return 返回名称列表，超时返回 []
+          @param model: MODEL_POSE / MODEL_HAND / MODEL_GES
+          @n     MODEL_GES 使用固定类别名（id 0..13），因此始终返回 []
+          @return 返回名称列表；HAND/POSE 返回当前缓存列表
+        '''
+
+    def set_keypoint_output(self, enable):
+        '''
+          @brief 配置 INVOKE 输出是否包含关键点
+          @param enable: True 输出关键点, False 仅输出框
+          @return CODE_OK: 成功, CODE_TIMEOUT: 超时
+        '''
+
+    def get_keypoint_output(self):
+        '''
+          @brief 获取 INVOKE 输出是否包含关键点
+          @return 成功返回 1/0，超时或返回值异常（非 0/1）时返回 None
         '''
 
     def available_result(self):
